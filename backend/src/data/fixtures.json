@@ -1,0 +1,360 @@
+{
+  "_comment": "Mock fixture set for the Office Address Autofill harness. Shaped to look like a Google Places Text Search (New) response: each candidate has place_id/name/location/addressComponents. `fple`/`scapia`/`kiwi`/`cheq` use the REAL names, place_ids, and lat/longs from sort_office_addresses.py; their addressComponents are constructed for this harness (not scraped) since the script only carried name/place_id/location. Every other entry is a synthetic scenario built to exercise a specific PRD test case — their place_ids are prefixed MOCK- so they're never mistaken for real Google identifiers.",
+  "referenceCurrentLocation": { "latitude": 12.9352, "longitude": 77.6245 },
+  "entries": [
+    {
+      "key": "fple",
+      "kind": "company",
+      "names": ["Fple Technology Pvt. Ltd.", "Fple", "Fple Technology"],
+      "candidates": [
+        {
+          "place_id": "ChIJJW0wIgATrjsR-IcU6zYBc9g",
+          "name": "Fple Technology Pvt. Ltd.",
+          "location": { "latitude": 12.9564797, "longitude": 77.6998334 },
+          "formattedAddress": "3rd Floor, Novel MSR Building, 36/1, Outer Ring Road, Marathahalli, Bengaluru, Karnataka 560037, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "3rd Floor" },
+            { "type": "premise", "text": "Novel MSR Building" },
+            { "type": "street_number", "text": "36/1" },
+            { "type": "route", "text": "Outer Ring Road" },
+            { "type": "sublocality_level_1", "text": "Marathahalli" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560037" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "scapia",
+      "kind": "company",
+      "names": ["Scapia Technology Private Limited", "Scapia", "Scapia Technology"],
+      "candidates": [
+        {
+          "place_id": "ChIJrUYkFaQTrjsRFJK-TvGk3zo",
+          "name": "Scapia Technology Private Limited",
+          "location": { "latitude": 12.933285, "longitude": 77.6834925 },
+          "formattedAddress": "4th Floor, Mantri Commercio, 128, Outer Ring Road, Bellandur, Bengaluru, Karnataka 560103, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "4th Floor" },
+            { "type": "premise", "text": "Mantri Commercio" },
+            { "type": "street_number", "text": "128" },
+            { "type": "route", "text": "Outer Ring Road" },
+            { "type": "sublocality_level_1", "text": "Bellandur" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560103" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "kiwi",
+      "kind": "company",
+      "names": ["Kiwi India Pvt Ltd", "Kiwi", "Kiwi India"],
+      "candidates": [
+        {
+          "place_id": "ChIJJVHAWTsVrjsRsCUxFod-8A0",
+          "name": "Kiwi India Pvt Ltd",
+          "location": { "latitude": 12.9360065, "longitude": 77.6158423 },
+          "formattedAddress": "5th Floor, ZedOne Building, 26, 80 Feet Road, 4th Block, Koramangala, Bengaluru, Karnataka 560034, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "5th Floor" },
+            { "type": "premise", "text": "ZedOne Building" },
+            { "type": "street_number", "text": "26" },
+            { "type": "route", "text": "80 Feet Road" },
+            { "type": "sublocality_level_2", "text": "4th Block" },
+            { "type": "sublocality_level_1", "text": "Koramangala" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560034" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "cheq",
+      "kind": "company",
+      "names": ["CheQ Digital Private Limited", "CheQ", "CheQ Digital"],
+      "candidates": [
+        {
+          "place_id": "ChIJV49APAAVrjsRiDOTVDvc9pU",
+          "name": "CheQ Digital Private Limited",
+          "location": { "latitude": 12.8919195, "longitude": 77.6424073 },
+          "formattedAddress": "BHIVE Workspace, 1st Floor, AKR Tech Park, 7, Kundalahalli Road, Mahadevapura, Bengaluru, Karnataka 560048, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "BHIVE Workspace, 1st Floor" },
+            { "type": "premise", "text": "AKR Tech Park" },
+            { "type": "street_number", "text": "7" },
+            { "type": "route", "text": "Kundalahalli Road" },
+            { "type": "sublocality_level_1", "text": "Mahadevapura" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560048" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tc1-vantage-multi-branch",
+      "kind": "scenario",
+      "testCase": "TC-1",
+      "label": "Multiple branches — ordered closest to farthest",
+      "description": "One company, four branch addresses at different distances from the reference current-location. Demonstrates the base proximity-ranking happy path: the list below is deliberately NOT in distance order, so a visibly different order on output proves the ranker did something.",
+      "names": ["Vantage Corp", "Vantage Corp", "Vantage", "Vantage Corporate Office"],
+      "candidates": [
+        {
+          "place_id": "MOCK-vantage-indiranagar",
+          "name": "Vantage Corp (Indiranagar Branch)",
+          "location": { "latitude": 12.9716, "longitude": 77.6412 },
+          "formattedAddress": "6th Floor, Vantage Corp, 100, 100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "6th Floor" },
+            { "type": "premise", "text": "Vantage Corp" },
+            { "type": "street_number", "text": "100" },
+            { "type": "route", "text": "100 Feet Road" },
+            { "type": "sublocality_level_1", "text": "Indiranagar" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560038" },
+            { "type": "country", "text": "India" }
+          ]
+        },
+        {
+          "place_id": "MOCK-vantage-electroniccity",
+          "name": "Vantage Corp (Electronic City Branch)",
+          "location": { "latitude": 12.8452, "longitude": 77.6602 },
+          "formattedAddress": "Tower B, 4th Floor, Vantage Corp, 9, Hosur Road, Electronic City, Bengaluru, Karnataka 560100, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "Tower B, 4th Floor" },
+            { "type": "premise", "text": "Vantage Corp" },
+            { "type": "street_number", "text": "9" },
+            { "type": "route", "text": "Hosur Road" },
+            { "type": "sublocality_level_1", "text": "Electronic City" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560100" },
+            { "type": "country", "text": "India" }
+          ]
+        },
+        {
+          "place_id": "MOCK-vantage-koramangala",
+          "name": "Vantage Corp (Koramangala Branch)",
+          "location": { "latitude": 12.9279, "longitude": 77.6271 },
+          "formattedAddress": "2nd Floor, Vantage Corp, 14, 80 Feet Road, Koramangala, Bengaluru, Karnataka 560095, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "2nd Floor" },
+            { "type": "premise", "text": "Vantage Corp" },
+            { "type": "street_number", "text": "14" },
+            { "type": "route", "text": "80 Feet Road" },
+            { "type": "sublocality_level_1", "text": "Koramangala" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560095" },
+            { "type": "country", "text": "India" }
+          ]
+        },
+        {
+          "place_id": "MOCK-vantage-whitefield",
+          "name": "Vantage Corp (Whitefield Branch)",
+          "location": { "latitude": 12.9698, "longitude": 77.75 },
+          "formattedAddress": "3rd Floor, Vantage Corp, 55, Whitefield Main Road, Whitefield, Bengaluru, Karnataka 560066, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "3rd Floor" },
+            { "type": "premise", "text": "Vantage Corp" },
+            { "type": "street_number", "text": "55" },
+            { "type": "route", "text": "Whitefield Main Road" },
+            { "type": "sublocality_level_1", "text": "Whitefield" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560066" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tc3-no-match",
+      "kind": "scenario",
+      "testCase": "TC-3",
+      "label": "No match found",
+      "description": "Deliberately unmatchable query. Exercises the empty-state / \"type your address manually\" path — never a dead end.",
+      "names": ["Zylotrex Quantum Dynamics"],
+      "candidates": []
+    },
+    {
+      "key": "tc4-noncompliant",
+      "kind": "scenario",
+      "testCase": "TC-4",
+      "label": "Cannot be made compliant — routes to manual entry",
+      "description": "The premise name is a single 36-character fused token with no spaces, commas, or dashes anywhere. Even after dropping every droppable component, it still can't fit on its own line, and it can't be shortened without a mid-word cut (which the rules forbid) — so this is genuinely uncompliable, same UX as TC-3.",
+      "names": ["Shrivenkateshwara Precision Technopark"],
+      "candidates": [
+        {
+          "place_id": "MOCK-tc4-noncompliant",
+          "name": "Shrivenkateshwara Precision Technopark",
+          "location": { "latitude": 12.9412, "longitude": 77.6911 },
+          "formattedAddress": "2nd Floor, Shrivenkateshwaraprecisiontechnopark, 5, Kadubeesanahalli Main Road, Kadubeesanahalli, Bengaluru, Karnataka 560103, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "2nd Floor" },
+            { "type": "premise", "text": "Shrivenkateshwaraprecisiontechnopark" },
+            { "type": "street_number", "text": "5" },
+            { "type": "route", "text": "Kadubeesanahalli Main Road" },
+            { "type": "sublocality_level_1", "text": "Kadubeesanahalli" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560103" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tc11-no-numeric",
+      "kind": "scenario",
+      "testCase": "TC-11",
+      "label": "No numeric component anywhere",
+      "description": "No street_number or subpremise in Google's data at all, and no digit anywhere in any component. Triggers the Line-1-digit rule's default: Line 1 becomes \"1, Silver Oak Business Centre\" and Flag:DefaultNumberInserted fires.",
+      "names": ["Silver Oak Business Centre"],
+      "candidates": [
+        {
+          "place_id": "MOCK-tc11-no-numeric",
+          "name": "Silver Oak Business Centre",
+          "location": { "latitude": 12.9975, "longitude": 77.6152 },
+          "formattedAddress": "Silver Oak Business Centre, Assaye Road, Frazer Town, Bengaluru, Karnataka 560005, India",
+          "addressComponents": [
+            { "type": "premise", "text": "Silver Oak Business Centre" },
+            { "type": "route", "text": "Assaye Road" },
+            { "type": "sublocality_level_1", "text": "Frazer Town" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560005" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tc17-geocode-unavailable",
+      "kind": "scenario",
+      "testCase": "TC-17/TC-19",
+      "label": "Current-address geocode unavailable",
+      "description": "Same four Vantage Corp branches as the TC-1 scenario, but the current-address geocode is forced unavailable — proves the ranker falls back to preserving Google's own relevance order (ranking_method: fallback_relevance) instead of faking a distance sort.",
+      "names": ["Vantage Corp (no current location)", "Vantage Corp (no current location)"],
+      "forceCurrentLocationUnavailable": true,
+      "reuseCandidatesFrom": "tc1-vantage-multi-branch"
+    },
+    {
+      "key": "tc18-tie-distance",
+      "kind": "scenario",
+      "testCase": "TC-18",
+      "label": "Tie / near-identical distance",
+      "description": "Two towers of the same building, placed symmetrically north/south of the reference current-location at the same longitude — so haversine distance is exactly equal for both. Proves the stable sort preserves Google's original relative order as the tie-break, rather than an arbitrary-looking flip.",
+      "names": ["Meridian Tech Park"],
+      "candidates": [
+        {
+          "place_id": "MOCK-meridian-tower-a",
+          "name": "Meridian Tech Park (Tower A)",
+          "location": { "latitude": 12.9452, "longitude": 77.6245 },
+          "formattedAddress": "Tower A, 2nd Floor, Meridian Tech Park, 45, Sarjapur Road, Sarjapur, Bengaluru, Karnataka 560035, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "Tower A, 2nd Floor" },
+            { "type": "premise", "text": "Meridian Tech Park" },
+            { "type": "street_number", "text": "45" },
+            { "type": "route", "text": "Sarjapur Road" },
+            { "type": "sublocality_level_1", "text": "Sarjapur" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560035" },
+            { "type": "country", "text": "India" }
+          ]
+        },
+        {
+          "place_id": "MOCK-meridian-tower-b",
+          "name": "Meridian Tech Park (Tower B)",
+          "location": { "latitude": 12.9252, "longitude": 77.6245 },
+          "formattedAddress": "Tower B, 3rd Floor, Meridian Tech Park, 47, Sarjapur Road, Sarjapur, Bengaluru, Karnataka 560035, India",
+          "addressComponents": [
+            { "type": "subpremise", "text": "Tower B, 3rd Floor" },
+            { "type": "premise", "text": "Meridian Tech Park" },
+            { "type": "street_number", "text": "47" },
+            { "type": "route", "text": "Sarjapur Road" },
+            { "type": "sublocality_level_1", "text": "Sarjapur" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560035" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tc8-coworking",
+      "kind": "scenario",
+      "testCase": "TC-8",
+      "label": "Co-working shared building",
+      "description": "CheQ's real BHIVE Workspace / AKR Tech Park address plus two fictional unrelated tenants at the same building, different suites. The subpremise/floor returned for a co-working query may not belong to the searching user's own employer — every result here is flagged so the UI nudges a floor/unit confirm rather than treating it as ground truth.",
+      "names": ["BHIVE AKR Tech Park", "BHIVE Workspace"],
+      "candidates": [
+        {
+          "place_id": "ChIJV49APAAVrjsRiDOTVDvc9pU",
+          "name": "CheQ Digital Private Limited",
+          "location": { "latitude": 12.8919195, "longitude": 77.6424073 },
+          "formattedAddress": "BHIVE Workspace, 1st Floor, AKR Tech Park, 7, Kundalahalli Road, Mahadevapura, Bengaluru, Karnataka 560048, India",
+          "coworkingAmbiguous": true,
+          "addressComponents": [
+            { "type": "subpremise", "text": "BHIVE Workspace, 1st Floor" },
+            { "type": "premise", "text": "AKR Tech Park" },
+            { "type": "street_number", "text": "7" },
+            { "type": "route", "text": "Kundalahalli Road" },
+            { "type": "sublocality_level_1", "text": "Mahadevapura" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560048" },
+            { "type": "country", "text": "India" }
+          ]
+        },
+        {
+          "place_id": "MOCK-bhive-brightleaf",
+          "name": "Brightleaf Consulting LLP",
+          "location": { "latitude": 12.8921, "longitude": 77.6426 },
+          "formattedAddress": "BHIVE Workspace, 3rd Floor, Suite 12, AKR Tech Park, 7, Kundalahalli Road, Mahadevapura, Bengaluru, Karnataka 560048, India",
+          "coworkingAmbiguous": true,
+          "addressComponents": [
+            { "type": "subpremise", "text": "BHIVE Workspace, 3rd Floor, Suite 12" },
+            { "type": "premise", "text": "AKR Tech Park" },
+            { "type": "street_number", "text": "7" },
+            { "type": "route", "text": "Kundalahalli Road" },
+            { "type": "sublocality_level_1", "text": "Mahadevapura" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560048" },
+            { "type": "country", "text": "India" }
+          ]
+        },
+        {
+          "place_id": "MOCK-bhive-nimbus",
+          "name": "Nimbus Data Systems Pvt Ltd",
+          "location": { "latitude": 12.8917, "longitude": 77.6422 },
+          "formattedAddress": "BHIVE Workspace, 2nd Floor, Suite 5, AKR Tech Park, 7, Kundalahalli Road, Mahadevapura, Bengaluru, Karnataka 560048, India",
+          "coworkingAmbiguous": true,
+          "addressComponents": [
+            { "type": "subpremise", "text": "BHIVE Workspace, 2nd Floor, Suite 5" },
+            { "type": "premise", "text": "AKR Tech Park" },
+            { "type": "street_number", "text": "7" },
+            { "type": "route", "text": "Kundalahalli Road" },
+            { "type": "sublocality_level_1", "text": "Mahadevapura" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560048" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    }
+  ]
+}

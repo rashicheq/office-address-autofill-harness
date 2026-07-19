@@ -1,0 +1,232 @@
+// Orchestrates the mock data source: fixture lookup (fuzzy-matched or
+// explicitly scenario-picked) -> formatting pipeline -> proximity ranker ->
+// confidence scorer -> response envelope. This is the only place that knows
+// about fixtures.json's shape.
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { findBestMatch, nameMatchScore } from "./fuzzyMatch.js";
+import { sortOfficeCandidates } from "./ranker.js";
+import { formatAddress, PIPELINE_PROVENANCE } from "./formattingPipeline.js";
+import { computeConfidence, NOT_APPLICABLE_CONFIDENCE } from "./confidence.js";
+import { CONFIG } from "../config.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const fixtures = JSON.parse(
+  readFileSync(path.join(__dirname, "../data/fixtures.json"), "utf-8")
+);
+
+const entryByKey = new Map(fixtures.entries.map((e) => [e.key, e]));
+
+export function listScenarios() {
+  return fixtures.entries.map((e) => ({
+    key: e.key,
+    kind: e.kind,
+    testCase: e.testCase ?? null,
+    label: e.label ?? e.names[0],
+    description: e.description ?? null,
+    names: e.names,
+  }));
+}
+
+function resolveEntry(entryKey) {
+  const entry = entryByKey.get(entryKey);
+  if (!entry) return null;
+  if (entry.reuseCandidatesFrom) {
+    const source = entryByKey.get(entry.reuseCandidatesFrom);
+    return { ...entry, candidates: source ? source.candidates : [] };
+  }
+  return entry;
+}
+
+function buildErrorLogEntries({ entry, rankingMethod, candidateCount, officeName }) {
+  const log = [];
+  if (candidateCount === 0) {
+    log.push({
+      testCase: "TC-3",
+      level: "info",
+      message: `No office address found for "${officeName}" — showing the empty state with a manual-entry option, never a dead end.`,
+    });
+  }
+  if (rankingMethod === "fallback_relevance" && candidateCount > 0) {
+    log.push({
+      testCase: "TC-17/TC-19",
+      level: "warn",
+      message: "Current-address geocode unavailable — preserved Google's own relevance order instead of faking a distance sort.",
+    });
+  }
+  if (entry?.testCase === "TC-18" && candidateCount > 1) {
+    log.push({
+      testCase: "TC-18",
+      level: "info",
+      message: "Two or more candidates are equidistant — stable sort kept their original relative order as the tie-break.",
+    });
+  }
+  return log;
+}
+
+/**
+ * officeName: typed query string.
+ * currentLocation: {latitude, longitude} | null | undefined — omitted entirely
+ *   means "use the harness's default reference point", NOT "unavailable".
+ * scenarioKey: optional fixture entry key — bypasses fuzzy match entirely
+ *   (Dev Mode's named-scenario picker).
+ * simulateGeocodeUnavailable: explicit flag to force TC-17/19 behavior on any
+ *   query/scenario, independent of whatever currentLocation was supplied.
+ */
+export function runMockSearch({
+  officeName,
+  currentLocation,
+  scenarioKey,
+  simulateGeocodeUnavailable = false,
+}) {
+  const startedAt = Date.now();
+  const errorLog = [];
+
+  let entry = null;
+  let matchScore = null;
+
+  if (scenarioKey) {
+    entry = resolveEntry(scenarioKey);
+    if (!entry) {
+      errorLog.push({
+        testCase: null,
+        level: "error",
+        message: `Unknown scenario key "${scenarioKey}" — falling back to a normal search.`,
+      });
+    }
+  }
+
+  if (!entry) {
+    const pool = fixtures.entries
+      .filter((e) => !e.reuseCandidatesFrom) // alias-only scenarios (e.g. tc17) aren't reachable by free-typing
+      .map((e) => ({ names: e.names, ref: e }));
+    const best = findBestMatch(officeName, pool);
+    if (best && best.score >= CONFIG.FUZZY_MATCH_THRESHOLD) {
+      entry = best.entry.ref;
+      matchScore = best.score;
+    }
+  }
+
+  const rawCandidates = entry ? entry.candidates : [];
+
+  const effectiveCurrentLocation =
+    entry?.forceCurrentLocationUnavailable || simulateGeocodeUnavailable
+      ? null
+      : currentLocation || CONFIG.DEFAULT_CURRENT_LOCATION;
+
+  const { candidates: ranked, rankingMethod } = sortOfficeCandidates(
+    effectiveCurrentLocation,
+    rawCandidates
+  );
+
+  errorLog.push(
+    ...buildErrorLogEntries({
+      entry,
+      rankingMethod,
+      candidateCount: ranked.length,
+      officeName,
+    })
+  );
+
+  const results = ranked.map((candidate) => {
+    const formatted = formatAddress(candidate.addressComponents, {
+      maxLineLength: CONFIG.MAX_LINE_LENGTH,
+      maxLines: CONFIG.MAX_LINES,
+      line1NumericPrecedence: CONFIG.LINE1_NUMERIC_PRECEDENCE,
+    });
+
+    const filtersApplied = [...formatted.filtersApplied];
+
+    if (formatted.requiresManualEntry) {
+      errorLog.push({
+        testCase: "TC-4",
+        level: "warn",
+        message: `"${candidate.name}" could not be made compliant even after every fallback — routed to manual entry, same as TC-3.`,
+      });
+    }
+    if (filtersApplied.includes("Flag:DefaultNumberInserted")) {
+      errorLog.push({
+        testCase: "TC-11",
+        level: "info",
+        message: `"${candidate.name}" had no numeric component anywhere — defaulted "1, " onto Line 1.`,
+      });
+    }
+    if (candidate.coworkingAmbiguous) {
+      filtersApplied.push("Flag:CoworkingSharedBuildingUnconfirmed");
+      errorLog.push({
+        testCase: "TC-8",
+        level: "info",
+        message: `"${candidate.name}" is in a shared co-working building — floor/unit isn't treated as ground truth without a confirm step.`,
+      });
+    }
+
+    const confidence = formatted.requiresManualEntry
+      ? NOT_APPLICABLE_CONFIDENCE
+      : computeConfidence({
+          query: officeName,
+          name: candidate.name,
+          rawComponents: candidate.addressComponents,
+          filtersApplied,
+          rankingMethod,
+          totalCandidateCount: ranked.length,
+        });
+
+    return {
+      place_id: candidate.place_id,
+      name: candidate.name,
+      location: candidate.location,
+      distance_km: candidate.distance_km,
+      rawFormattedAddress: candidate.formattedAddress,
+      addressLines: formatted.lines,
+      compliant: formatted.compliant,
+      requiresManualEntry: formatted.requiresManualEntry,
+      FiltersApplied: filtersApplied,
+      confidence,
+      coworkingAmbiguous: Boolean(candidate.coworkingAmbiguous),
+    };
+  });
+
+  return {
+    source: "mock",
+    query: {
+      officeName,
+      currentLocation: currentLocation ?? null,
+      scenarioKey: scenarioKey ?? null,
+      simulateGeocodeUnavailable: Boolean(simulateGeocodeUnavailable),
+    },
+    matchedEntryKey: entry?.key ?? null,
+    matchScore,
+    pipelineImplementation: PIPELINE_PROVENANCE.implementation,
+    pipelineNote: PIPELINE_PROVENANCE.note,
+    ranking_method: rankingMethod,
+    results,
+    errorLog,
+    rawResponse: { places: rawCandidates },
+    timing: { startedAt, durationMs: Date.now() - startedAt },
+  };
+}
+
+export function buildLiveStubResponse({ officeName, currentLocation }) {
+  const startedAt = Date.now();
+  const message =
+    "Requires Google API key setup — not yet integrated. This is a deliberate stub (CLAUDE.md 4.0); no live HTTP call was attempted.";
+  return {
+    source: "live",
+    query: { officeName, currentLocation: currentLocation ?? null, scenarioKey: null },
+    matchedEntryKey: null,
+    matchScore: null,
+    pipelineImplementation: null,
+    pipelineNote: null,
+    ranking_method: null,
+    results: [],
+    errorLog: [{ testCase: null, level: "error", message }],
+    rawResponse: null,
+    notIntegrated: true,
+    message,
+    timing: { startedAt, durationMs: Date.now() - startedAt },
+  };
+}
+
+export { nameMatchScore };
