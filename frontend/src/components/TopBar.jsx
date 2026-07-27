@@ -1,7 +1,7 @@
 import { useAppMode } from "../context/AppModeContext.jsx";
 
 export default function TopBar() {
-  const { mode, setMode, dataSource, setDataSource } = useAppMode();
+  const { mode, setMode, dataSource, setDataSource, liveApiConfigured } = useAppMode();
 
   return (
     <header className="topbar">
@@ -35,9 +35,16 @@ export default function TopBar() {
             type="button"
             className={dataSource === "live" ? "segmented-btn active live-btn" : "segmented-btn live-btn"}
             onClick={() => setDataSource("live")}
-            title="Requires Google API key setup — not yet integrated"
+            title={
+              liveApiConfigured
+                ? "GOOGLE_PLACES_API_KEY is configured — this makes real, billed calls to Google Places"
+                : "Requires Google API key setup — add GOOGLE_PLACES_API_KEY to backend/.env"
+            }
           >
-            Live API <span className="badge">not integrated</span>
+            Live API{" "}
+            <span className={liveApiConfigured ? "badge badge-live" : "badge"}>
+              {liveApiConfigured ? "real calls" : "not configured"}
+            </span>
           </button>
         </div>
       </div>

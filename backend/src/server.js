@@ -1,8 +1,10 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { searchRouter } from "./routes/search.js";
 import { listScenarios } from "./lib/mockSearch.js";
 import { CONFIG, OPEN_QUESTIONS } from "./config.js";
+import { isLiveApiConfigured } from "./lib/liveSearch.js";
 
 const app = express();
 const PORT = process.env.PORT || 8787;
@@ -24,7 +26,7 @@ app.get("/scenarios", (req, res) => {
 // current config defaults, per CLAUDE.md Section 7 ("don't silently pick,
 // flag it").
 app.get("/meta", (req, res) => {
-  res.json({ config: CONFIG, openQuestions: OPEN_QUESTIONS });
+  res.json({ config: CONFIG, openQuestions: OPEN_QUESTIONS, liveApiConfigured: isLiveApiConfigured() });
 });
 
 app.use(searchRouter);

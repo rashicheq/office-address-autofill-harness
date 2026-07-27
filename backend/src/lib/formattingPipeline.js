@@ -296,11 +296,32 @@ function applyLine1Precedence(components, mode) {
   return arr;
 }
 
-const NON_COMPLIANT_RESULT = (filtersApplied) => ({
+// Non-line, mandatory onboarding-form fields (PRD Section 1 / the uploaded
+// office-address-pipeline.js's documented output shape: "Line 1, Line 2,
+// Line 3, Pincode, City, State"). Deliberately NOT including `landmark` here
+// — CLAUDE.md 3.1 puts landmark in the Lower-tier, line-eligible/droppable
+// pool alongside sublocality_level_1/neighborhood, not a separate field.
+const NON_LINE_TYPE_TO_FIELD = {
+  locality: "city",
+  administrative_area_level_1: "state",
+  postal_code: "pincode",
+};
+
+function extractNonLineFields(rawComponents) {
+  const fields = { city: "", state: "", pincode: "" };
+  for (const c of rawComponents) {
+    const field = NON_LINE_TYPE_TO_FIELD[c.type];
+    if (field && !fields[field]) fields[field] = c.text;
+  }
+  return fields;
+}
+
+const NON_COMPLIANT_RESULT = (filtersApplied, nonLineFields) => ({
   lines: null,
   filtersApplied,
   compliant: false,
   requiresManualEntry: true,
+  ...nonLineFields,
 });
 
 /**
@@ -308,19 +329,24 @@ const NON_COMPLIANT_RESULT = (filtersApplied) => ({
  * options: { maxLineLength, maxLines, line1NumericPrecedence }
  *
  * Returns { lines: [l1,l2,l3] | null, filtersApplied: string[], compliant,
- * requiresManualEntry }. `lines` is null when requiresManualEntry is true
- * (TC-4 — never ship a broken address, route to manual entry same as TC-3).
+ * requiresManualEntry, city, state, pincode }. `lines` is null when
+ * requiresManualEntry is true (TC-4 — never ship a broken address, route to
+ * manual entry same as TC-3). city/state/pincode are extracted independently
+ * of line-packing and are returned even in the non-compliant case (PRD: all
+ * fields stay editable, so whatever the source did give us is still useful).
  */
 export function formatAddress(rawComponents, options = {}) {
   const maxLineLen = options.maxLineLength ?? 32;
   const maxLines = options.maxLines ?? 3;
   const line1NumericPrecedence = options.line1NumericPrecedence ?? "subpremise_first";
 
+  const nonLineFields = extractNonLineFields(rawComponents);
+
   let relevant = rawComponents.filter((c) => TIER_BY_TYPE[c.type]);
   relevant = applyLine1Precedence(relevant, line1NumericPrecedence);
 
   if (relevant.length === 0) {
-    return NON_COMPLIANT_RESULT(["Flag:NoLineEligibleComponents"]);
+    return NON_COMPLIANT_RESULT(["Flag:NoLineEligibleComponents"], nonLineFields);
   }
 
   const abbreviated = relevant.map((c) => ({ ...c, text: abbreviateText(c.text) }));
@@ -331,7 +357,7 @@ export function formatAddress(rawComponents, options = {}) {
 
   const attempt = runFullFit(abbreviated, maxLineLen, maxLines, maxLineLen);
   if (!attempt) {
-    return NON_COMPLIANT_RESULT([...abbreviationFlags, "Flag:NonCompliantRouteToManualEntry"]);
+    return NON_COMPLIANT_RESULT([...abbreviationFlags, "Flag:NonCompliantRouteToManualEntry"], nonLineFields);
   }
 
   let filtersApplied = [...abbreviationFlags, ...attempt.filtersApplied];
@@ -343,7 +369,7 @@ export function formatAddress(rawComponents, options = {}) {
     if (line1.length + 3 > maxLineLen) {
       const redo = runFullFit(abbreviated, maxLineLen, maxLines, maxLineLen - 3);
       if (!redo) {
-        return NON_COMPLIANT_RESULT([...abbreviationFlags, "Flag:NonCompliantRouteToManualEntry"]);
+        return NON_COMPLIANT_RESULT([...abbreviationFlags, "Flag:NonCompliantRouteToManualEntry"], nonLineFields);
       }
       filtersApplied = [...abbreviationFlags, ...redo.filtersApplied];
       base = redo.lines;
@@ -358,6 +384,7 @@ export function formatAddress(rawComponents, options = {}) {
     filtersApplied,
     compliant: true,
     requiresManualEntry: false,
+    ...nonLineFields,
   };
 }
 

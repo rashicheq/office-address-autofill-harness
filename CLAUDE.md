@@ -75,16 +75,19 @@ Current phase does **not** require a Google API key at all. Build and validate e
 - **Live API** should exist in the UI as a visible option but must be **non-functional / disabled** for now — greyed out or selectable-but-blocked with a message like "Requires Google API key setup — not yet integrated." Do not wire any real `fetch` call to Google in this phase, even behind a flag. This avoids a half-wired path that silently fails or accidentally burns free-tier quota.
 - When the Google API phase actually starts later: the only change should be implementing the Live API branch of this same toggle and enabling it — the mock branch, the formatting pipeline, the ranker, and both UI modes should all be written so they don't need to change shape to accommodate this later.
 
+> **Live phase started (2026-07-27):** Rashi explicitly requested real Google Places integration — a prototype to add a real `GOOGLE_PLACES_API_KEY` and batch-run a list of real office names through the rules. The Live branch is now implemented for real (`backend/src/lib/liveSearch.js` + `livePlacesClient.js`), gated on `GOOGLE_PLACES_API_KEY` being present in `backend/.env` (see `backend/.env.example`) — with no key configured, the UI/API behave exactly as before (visible-but-stubbed). As anticipated above, this reused the mock branch's formatting pipeline / ranker / confidence scorer unchanged rather than forking a second pipeline. New in this pass: `formatAddress` now also extracts `city`/`state`/`pincode` as separate fields (the PRD's full onboarding-field list, previously only the 3 address lines were produced), and `POST /search/batch` + a Developer Mode batch runner let a whole list of office names be run in one pass instead of one at a time. No real API key or the 20 office names were available in the session that built this — the request/error paths were verified against a fake key (a real 400 from Google, handled gracefully), but the success path against real data is still unverified and worth a first real run before trusting its output.
+
 ### Stack
 - Backend: Node/Express. One route, e.g. `POST /search`, that:
   - Reads `dataSource` (`mock` | `live`) from the request.
   - If `mock`: looks up the fixture set, applies fuzzy name-match, returns a Places-shaped response with `source: "mock"`.
-  - If `live`: for now, returns a clear "not yet integrated" response rather than attempting a call — this branch is a stub until the later phase (see 4.0). Structure the code so swapping in the real `fetch` to Google Places Text Search (New) later is a small, contained change — same function signature, same return shape.
+  - If `live`: calls Google Places Text Search (New) when `GOOGLE_PLACES_API_KEY` is configured (`backend/lib/liveSearch.js`); otherwise returns the original clear "not yet integrated" stub rather than attempting a call. Same function signature, same return shape either way — no caller needs to know which one ran.
   - Either way, runs the response through the formatting pipeline + proximity ranker before returning.
-  - Returns: raw response (mock or, later, live), formatted/ranked results, `FiltersApplied` per result, `ranking_method`, per-result confidence score + its inputs, timing/latency, and `source`.
+  - Returns: raw response (mock or live), formatted/ranked results, `FiltersApplied` per result, `ranking_method`, per-result confidence score + its inputs, timing/latency, and `source`.
+  - `POST /search/batch` runs the same per-name logic over a list of office names in one call (throttled between names in live mode) — see `backend/src/routes/search.js`.
 - Frontend: React. Modes toggled by switches, not separate apps:
   - **User Mode** — replicate the attached Figma screens: text input for office name → list of returned addresses as selectable options → "Add a Different Address" to free-type/edit. Should look and feel like the real onboarding step, not a debug tool. Works fully against mock data now.
-  - **Developer Mode** — same input box, but the output panel shows: the exact request that was made (mock lookup or, later, live), the raw response, `ranking_method`, `distance_km` per result, `FiltersApplied` per result, the confidence score breakdown (see below), `source` (mock/live), a picker for named mock scenarios, and a visible error/failure log (empty results, TC-17/18/19 triggers) with which test case each maps to.
+  - **Developer Mode** — same input box, but the output panel shows: the exact request that was made (mock lookup or live), the raw response, `ranking_method`, `distance_km` per result, `FiltersApplied` per result, the confidence score breakdown (see below), `source` (mock/live), a picker for named mock scenarios, a batch runner for a whole list of office names at once, and a visible error/failure log (empty results, TC-17/18/19 triggers, live API failures) with which test case each maps to.
 
 ### Confidence score — define before building
 This has no existing spec, so pick concrete inputs rather than a black-box number. Reasonable starting components (combine into a weighted score, show the components in Dev Mode, not just the total):
@@ -101,11 +104,11 @@ Do not treat this as solved — flag it back to Rashi as an open item if the wei
 - Not building V1 (map-pin) — that's a separate, already-lower-risk flow.
 - Not solving OQ-2 (street_number vs subpremise precedence) or OQ-3 (whether to prompt the user for a floor number instead of defaulting "1") — surface these as open flags in Dev Mode, don't silently pick an answer.
 - Not handling international/remote-employee addressing (TC-5/TC-13/TC-20) — out of scope for this harness; a plain "not applicable" stub is enough.
-- **Not integrating the live Google Places API in this phase** (see 4.0) — do not add a `GOOGLE_PLACES_API_KEY` requirement, do not make real HTTP calls to Google, and do not block on billing/quota setup. That's a deliberately separate later phase.
+- ~~Not integrating the live Google Places API in this phase~~ — **superseded 2026-07-27** (see 4.0's "Live phase started" note): Rashi explicitly asked to start this phase. Live calls now happen when `GOOGLE_PLACES_API_KEY` is configured; with no key configured, behavior is unchanged from before this note.
 
-## 6. Security (applies once the Live API phase begins)
-- Google Places API key will live in `.env`, be in `.gitignore`, and never be sent to or readable from the frontend bundle. All Places calls go through the Express backend.
-- No `.env` or key handling is needed to build or run this current mock-only phase.
+## 6. Security
+- Google Places API key lives in `backend/.env` (gitignored — see `backend/.env.example` for the template) and is never sent to or readable from the frontend bundle. All Places calls go through the Express backend (`backend/src/lib/livePlacesClient.js`).
+- The frontend never handles the key at all — it only ever sends `dataSource: "live"|"mock"`; the backend alone decides whether Live is actually configured (`GET /meta` → `liveApiConfigured`).
 
 ## 7. When something in the PRD is ambiguous or open
 Point it out rather than resolving it silently — several Open Questions (OQ-1 through OQ-8) in the PRD are explicitly unresolved. If a build decision here depends on one of them, pick a reasonable default, implement it behind a flag/constant that's easy to flip, and say so — don't bury the assumption.

@@ -60,3 +60,36 @@ test("Plus Code is excluded from the line-eligible pool entirely (TC-15)", () =>
   assert.ok(result.filtersApplied.includes("Flag:DefaultNumberInserted"));
   assert.ok(!result.lines.some((line) => line.includes("7J4M")));
 });
+
+test("extracts city/state/pincode independently of line-packing", () => {
+  const result = formatAddress([
+    { type: "street_number", text: "7" },
+    { type: "route", text: "Kundalahalli Road" },
+    { type: "locality", text: "Bengaluru" },
+    { type: "administrative_area_level_1", text: "Karnataka" },
+    { type: "postal_code", text: "560048" },
+  ]);
+  assert.equal(result.city, "Bengaluru");
+  assert.equal(result.state, "Karnataka");
+  assert.equal(result.pincode, "560048");
+});
+
+test("city/state/pincode are still returned when the address routes to manual entry (TC-4)", () => {
+  const result = formatAddress([
+    { type: "subpremise", text: "2nd Floor" },
+    { type: "premise", text: "Shrivenkateshwaraprecisiontechnopark" },
+    { type: "street_number", text: "5" },
+    { type: "route", text: "Kadubeesanahalli Main Road" },
+    { type: "sublocality_level_1", text: "Kadubeesanahalli" },
+    { type: "locality", text: "Bengaluru" },
+  ]);
+  assert.equal(result.requiresManualEntry, true);
+  assert.equal(result.city, "Bengaluru");
+});
+
+test("city/state/pincode default to empty strings when the source has none", () => {
+  const result = formatAddress([{ type: "route", text: "Church Street" }, { type: "street_number", text: "25" }]);
+  assert.equal(result.city, "");
+  assert.equal(result.state, "");
+  assert.equal(result.pincode, "");
+});

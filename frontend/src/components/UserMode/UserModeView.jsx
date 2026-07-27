@@ -2,6 +2,7 @@ import { useState } from "react";
 import AddressCard from "./AddressCard.jsx";
 
 const EMPTY_LINES = ["", "", ""];
+const EMPTY_FIELDS = { city: "", state: "", pincode: "" };
 
 // Replicates the attached Figma screens (office-name search -> selectable
 // address list -> "Add a Different Address" free-type escape hatch) closely
@@ -9,16 +10,17 @@ const EMPTY_LINES = ["", "", ""];
 // pre-filled field stays editable (PRD cross-cutting rule: auto-fill is a
 // starting point, never a locked value) — confidence score, FiltersApplied,
 // and ranking_method are deliberately NOT shown here; that's Dev Mode's job.
-export default function UserModeView({ searchState, dataSource }) {
+export default function UserModeView({ searchState, dataSource, liveApiConfigured }) {
   const { response, loading, error, runSearch } = searchState;
   const [officeName, setOfficeName] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [lines, setLines] = useState(EMPTY_LINES);
+  const [fields, setFields] = useState(EMPTY_FIELDS);
   const [showManual, setShowManual] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  const isBlocked = dataSource === "live";
+  const isBlocked = dataSource === "live" && !liveApiConfigured;
 
   const handleSearch = async () => {
     if (!officeName.trim() || isBlocked) return;
@@ -27,6 +29,7 @@ export default function UserModeView({ searchState, dataSource }) {
     setShowManual(false);
     setConfirmed(false);
     setLines(EMPTY_LINES);
+    setFields(EMPTY_FIELDS);
     await runSearch({ officeName });
   };
 
@@ -39,6 +42,11 @@ export default function UserModeView({ searchState, dataSource }) {
       result.addressLines?.[1] || "",
       result.addressLines?.[2] || "",
     ]);
+    setFields({
+      city: result.city || "",
+      state: result.state || "",
+      pincode: result.pincode || "",
+    });
   };
 
   const handleManualStart = () => {
@@ -46,6 +54,7 @@ export default function UserModeView({ searchState, dataSource }) {
     setSelectedId(null);
     setConfirmed(false);
     setLines(EMPTY_LINES);
+    setFields(EMPTY_FIELDS);
   };
 
   const handleBackToResults = () => {
@@ -53,6 +62,7 @@ export default function UserModeView({ searchState, dataSource }) {
     setSelectedId(null);
     setConfirmed(false);
     setLines(EMPTY_LINES);
+    setFields(EMPTY_FIELDS);
   };
 
   const updateLine = (index, value) => {
@@ -61,6 +71,10 @@ export default function UserModeView({ searchState, dataSource }) {
       next[index] = value;
       return next;
     });
+  };
+
+  const updateField = (key, value) => {
+    setFields((prev) => ({ ...prev, [key]: value }));
   };
 
   // TC-4 (can't be made compliant) routes to the same empty-state / manual-
@@ -127,7 +141,12 @@ export default function UserModeView({ searchState, dataSource }) {
 
           {isBlocked && (
             <div className="notice notice-blocked">
-              Requires Google API key setup — not yet integrated.
+              Requires Google API key setup — add GOOGLE_PLACES_API_KEY to backend/.env.
+            </div>
+          )}
+          {dataSource === "live" && liveApiConfigured && (
+            <div className="notice notice-blocked">
+              Live API active — this search makes a real, billed call to Google Places.
             </div>
           )}
 
@@ -172,6 +191,20 @@ export default function UserModeView({ searchState, dataSource }) {
                   <input value={lines[i]} onChange={(e) => updateLine(i, e.target.value)} />
                 </label>
               ))}
+              <div className="field-row">
+                <label className="field">
+                  City
+                  <input value={fields.city} onChange={(e) => updateField("city", e.target.value)} />
+                </label>
+                <label className="field">
+                  State
+                  <input value={fields.state} onChange={(e) => updateField("state", e.target.value)} />
+                </label>
+                <label className="field">
+                  Pincode
+                  <input value={fields.pincode} onChange={(e) => updateField("pincode", e.target.value)} />
+                </label>
+              </div>
               <div className="editor-actions">
                 <button type="button" className="primary-btn" onClick={() => setConfirmed(true)}>
                   Confirm and Continue

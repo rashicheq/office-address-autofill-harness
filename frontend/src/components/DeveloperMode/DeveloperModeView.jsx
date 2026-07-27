@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { fetchScenarios, fetchMeta } from "../../api/client.js";
 import ConfidenceBreakdown from "./ConfidenceBreakdown.jsx";
+import BatchRunner from "./BatchRunner.jsx";
 
 // Same input box as User Mode (CLAUDE.md 4: "same input box, but the output
 // panel shows...") plus everything needed to diagnose a failure: the exact
 // request, the raw response, ranking_method, distance_km, FiltersApplied,
 // the confidence breakdown, source, a named-scenario picker, and a visible
 // error/failure log tagged by test case.
-export default function DeveloperModeView({ searchState, dataSource }) {
+export default function DeveloperModeView({ searchState, dataSource, liveApiConfigured }) {
   const { response, loading, error, lastRequest, runSearch } = searchState;
   const [officeName, setOfficeName] = useState("CheQ");
   const [scenarioKey, setScenarioKey] = useState("");
@@ -113,9 +114,14 @@ export default function DeveloperModeView({ searchState, dataSource }) {
         </button>
       </div>
 
-      {dataSource === "live" && (
+      {dataSource === "live" && !liveApiConfigured && (
         <div className="notice notice-blocked">
-          Live API selected — the backend will return the not-yet-integrated stub. No HTTP call is made to Google (CLAUDE.md 4.0).
+          Live API selected, but GOOGLE_PLACES_API_KEY isn't set in backend/.env — the backend will return a clearly-flagged stub, no HTTP call is made to Google.
+        </div>
+      )}
+      {dataSource === "live" && liveApiConfigured && (
+        <div className="notice notice-blocked">
+          Live API selected — every search below makes a real, billed call to Google Places Text Search (New).
         </div>
       )}
 
@@ -164,6 +170,13 @@ export default function DeveloperModeView({ searchState, dataSource }) {
                       ))}
                     </div>
                   )}
+                  {(r.city || r.state || r.pincode) && (
+                    <div className="dev-result-fields">
+                      <span>City: {r.city || <em>—</em>}</span>
+                      <span>State: {r.state || <em>—</em>}</span>
+                      <span>Pincode: {r.pincode || <em>—</em>}</span>
+                    </div>
+                  )}
                   {r.FiltersApplied.length > 0 && (
                     <div className="filters-applied">
                       {r.FiltersApplied.map((f, i) => (
@@ -197,6 +210,13 @@ export default function DeveloperModeView({ searchState, dataSource }) {
           </div>
         </>
       )}
+
+      <BatchRunner
+        dataSource={dataSource}
+        liveApiConfigured={liveApiConfigured}
+        currentLocation={currentLocation}
+        simulateGeocodeUnavailable={simulateUnavailable}
+      />
 
       {meta && (
         <div className="open-questions">

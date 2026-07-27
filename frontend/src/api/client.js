@@ -22,6 +22,10 @@ export function search(params) {
   return postJSON("/search", params);
 }
 
+export function searchBatch(params) {
+  return postJSON("/search/batch", params);
+}
+
 export function fetchScenarios() {
   return getJSON("/scenarios");
 }

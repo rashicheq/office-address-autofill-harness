@@ -5,7 +5,7 @@ import UserModeView from "./components/UserMode/UserModeView.jsx";
 import DeveloperModeView from "./components/DeveloperMode/DeveloperModeView.jsx";
 
 function AppShell() {
-  const { mode, dataSource } = useAppMode();
+  const { mode, dataSource, liveApiConfigured } = useAppMode();
   const searchState = useOfficeSearch(dataSource);
 
   return (
@@ -13,9 +13,9 @@ function AppShell() {
       <TopBar />
       <main className="app-main">
         {mode === "user" ? (
-          <UserModeView searchState={searchState} dataSource={dataSource} />
+          <UserModeView searchState={searchState} dataSource={dataSource} liveApiConfigured={liveApiConfigured} />
         ) : (
-          <DeveloperModeView searchState={searchState} dataSource={dataSource} />
+          <DeveloperModeView searchState={searchState} dataSource={dataSource} liveApiConfigured={liveApiConfigured} />
         )}
       </main>
     </div>

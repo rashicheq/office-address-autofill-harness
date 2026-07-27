@@ -180,6 +180,9 @@ export function runMockSearch({
       distance_km: candidate.distance_km,
       rawFormattedAddress: candidate.formattedAddress,
       addressLines: formatted.lines,
+      city: formatted.city,
+      state: formatted.state,
+      pincode: formatted.pincode,
       compliant: formatted.compliant,
       requiresManualEntry: formatted.requiresManualEntry,
       FiltersApplied: filtersApplied,
@@ -208,25 +211,7 @@ export function runMockSearch({
   };
 }
 
-export function buildLiveStubResponse({ officeName, currentLocation }) {
-  const startedAt = Date.now();
-  const message =
-    "Requires Google API key setup — not yet integrated. This is a deliberate stub (CLAUDE.md 4.0); no live HTTP call was attempted.";
-  return {
-    source: "live",
-    query: { officeName, currentLocation: currentLocation ?? null, scenarioKey: null },
-    matchedEntryKey: null,
-    matchScore: null,
-    pipelineImplementation: null,
-    pipelineNote: null,
-    ranking_method: null,
-    results: [],
-    errorLog: [{ testCase: null, level: "error", message }],
-    rawResponse: null,
-    notIntegrated: true,
-    message,
-    timing: { startedAt, durationMs: Date.now() - startedAt },
-  };
-}
+// buildLiveStubResponse (the "no key configured" case) and runLiveSearch
+// (the real Google Places branch) now live in ./liveSearch.js.
 
 export { nameMatchScore };
