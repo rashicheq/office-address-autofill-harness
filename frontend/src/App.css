@@ -139,6 +139,16 @@ body {
   font-size: 14px;
 }
 
+.icon-btn-active {
+  cursor: pointer;
+  background: none;
+  color: inherit;
+}
+
+.icon-btn-active:hover {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
 .onboarding-header h1 {
   font-size: 24px;
   margin: 0 0 8px;
@@ -347,7 +357,8 @@ body {
   margin-bottom: 12px;
 }
 
-.field input {
+.field input,
+.field select {
   display: block;
   width: 100%;
   margin-top: 4px;
@@ -356,6 +367,7 @@ body {
   border-radius: 8px;
   font-size: 14px;
   color: var(--text-dark);
+  background: var(--white);
 }
 
 .field input:disabled {
