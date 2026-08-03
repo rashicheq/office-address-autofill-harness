@@ -293,6 +293,29 @@
       ]
     },
     {
+      "key": "sparse-components",
+      "kind": "scenario",
+      "testCase": "Major callout",
+      "label": "Sparse data — 50%+ core components missing",
+      "description": "Google only returns a rough area-level match: a sublocality and the usual city/state/pincode, nothing else (no floor, building, street number, or street name at all). 5 of the 6 core address components are missing, so the rules script gives up on Office Floor/Tower and Office Block/Building Name entirely, dumps the full raw location into Area/Locality, and leaves both precise fields blank for the user to fill in by hand.",
+      "names": ["Nimbus Analytics (approximate location only)"],
+      "candidates": [
+        {
+          "place_id": "MOCK-sparse-nimbus-analytics",
+          "name": "Nimbus Analytics",
+          "location": { "latitude": 12.9698, "longitude": 77.75 },
+          "formattedAddress": "Whitefield, Bengaluru, Karnataka 560066, India",
+          "addressComponents": [
+            { "type": "sublocality_level_1", "text": "Whitefield" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560066" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
       "key": "tc8-coworking",
       "kind": "scenario",
       "testCase": "TC-8",

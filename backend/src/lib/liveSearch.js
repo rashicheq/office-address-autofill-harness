@@ -198,9 +198,8 @@ export async function runLiveSearch({ officeName, currentLocation, simulateGeoco
 
   const results = ranked.map((candidate) => {
     const formatted = formatAddress(candidate.addressComponents, {
-      maxLineLength: CONFIG.MAX_LINE_LENGTH,
-      maxLines: CONFIG.MAX_LINES,
-      line1NumericPrecedence: CONFIG.LINE1_NUMERIC_PRECEDENCE,
+      maxFieldLength: CONFIG.MAX_FIELD_LENGTH,
+      maxAreaLocalityLength: CONFIG.MAX_AREA_LOCALITY_LENGTH,
     });
 
     const filtersApplied = [...formatted.filtersApplied];
@@ -216,7 +215,14 @@ export async function runLiveSearch({ officeName, currentLocation, simulateGeoco
       errorLog.push({
         testCase: "TC-11",
         level: "info",
-        message: `"${candidate.name}" had no numeric component anywhere — defaulted "1, " onto Line 1.`,
+        message: `"${candidate.name}" had no numeric component anywhere — defaulted "1, " onto Office Floor/Tower.`,
+      });
+    }
+    if (formatted.sparseData) {
+      errorLog.push({
+        testCase: null,
+        level: "warn",
+        message: `"${candidate.name}" is missing 50%+ of its core address components — the full raw location was placed in Area/Locality and Office Floor/Tower + Office Block/Building Name were left blank for manual entry.`,
       });
     }
     if (candidate.coworkingAmbiguous) {
@@ -245,12 +251,15 @@ export async function runLiveSearch({ officeName, currentLocation, simulateGeoco
       location: candidate.location,
       distance_km: candidate.distance_km,
       rawFormattedAddress: candidate.formattedAddress,
-      addressLines: formatted.lines,
-      city: formatted.city,
+      officeFloorTower: formatted.officeFloorTower,
+      officeBlockBuilding: formatted.officeBlockBuilding,
+      areaLocality: formatted.areaLocality,
+      cityDistrict: formatted.cityDistrict,
       state: formatted.state,
       pincode: formatted.pincode,
       compliant: formatted.compliant,
       requiresManualEntry: formatted.requiresManualEntry,
+      sparseData: Boolean(formatted.sparseData),
       FiltersApplied: filtersApplied,
       confidence,
       coworkingAmbiguous: Boolean(candidate.coworkingAmbiguous),

@@ -6,28 +6,28 @@
 // repo. Per CLAUDE.md 3.1 / 4.0 ("stub this if address_filter_pipeline_v2.py
 // isn't in the repo — flag that it's a stub"), this file is a harness-local
 // REIMPLEMENTATION of the rules documented in PRD Section 5, written from the
-// spec rather than ported from the real script. It is faithful to the
-// documented rule precedence (fit-check -> minimal-drop search -> punctuation
-// shorten -> Line-1-digit rule) so the harness can actually exercise TC-4/
-// TC-11/TC-16, but it has NOT been validated against the same 6 real Google
-// responses the canonical script was. Treat its exact output as illustrative,
-// not authoritative — swap this module out when the real script lands in the
-// repo. Every response carries `pipelineImplementation: "harness-stub"` plus
-// this note so it's never mistaken for validated production logic.
+// spec rather than ported from the real script. Treat its exact output as
+// illustrative, not authoritative. Every response carries
+// `pipelineImplementation: "harness-stub"` plus this note.
+//
+// Field schema (2026-08 revision): outputs the onboarding form's actual named
+// fields (per the attached Figma) — officeFloorTower, officeBlockBuilding,
+// areaLocality, pincode, cityDistrict, state — instead of the earlier generic
+// Line 1/2/3. Each field independently holds whichever component(s) it owns;
+// there's no more shared 3-line packing constraint, so the old "smallest set
+// to drop across 3 lines" search is now scoped per-field (only areaLocality
+// realistically combines enough components to ever need dropping).
 // -----------------------------------------------------------------------------
 
 export const PIPELINE_PROVENANCE = {
   implementation: "harness-stub",
   note:
-    "Reimplements PRD Section 5 rules locally; NOT the canonical address_filter_pipeline_v2.py, which isn't in this repo.",
+    "Reimplements PRD Section 5 rules locally against the Figma's structured fields; NOT the canonical address_filter_pipeline_v2.py, which isn't in this repo.",
 };
 
-// PRD Section 5.2 — component priority tiers. Only components in this map
-// participate in the 3-line composition; locality/administrative_area/
-// postal_code/country are treated as separate fields entirely (standard
-// Indian KYC forms already capture City/State/Pincode outside the 3 free
-// lines), and a bare `plus_code` type is deliberately absent here so it's
-// automatically excluded from the line-eligible pool (TC-15/OQ-4).
+// PRD Section 5.2 — component priority tiers, now used to decide what drops
+// from areaLocality (officeFloorTower/officeBlockBuilding each own a single
+// component type and don't compete for space with anything else).
 const TIER_BY_TYPE = {
   subpremise: "critical",
   premise: "critical",
@@ -40,11 +40,24 @@ const TIER_BY_TYPE = {
   landmark: "lower",
 };
 
-// Cost used only to rank *candidate drop-combinations of the same size*
-// cheapest-first — route is penalized heavily so it is only ever chosen when
-// no lower-tier combination of the same size succeeds ("high tier only gives
-// way if no sparing combination works", PRD Section 5.1 step 2).
 const TIER_COST = { lower: 1, medium: 3, high: 100 };
+
+// Denominator for the "50%+ components missing" rule (Rashi, 2026-08).
+// Deliberately excludes sublocality_level_2/3 and landmark — those are
+// legitimately absent on plenty of perfectly fine addresses (see fixtures),
+// so counting them would trigger this rule on addresses that are actually
+// fine. These 6 are the ones a normal, well-formed office address should
+// have most of.
+const CORE_COMPONENT_TYPES = ["subpremise", "premise", "street_number", "route", "sublocality_level_1", "neighborhood"];
+
+// Order components combine within Area/Locality when more than one exists.
+const AREA_LOCALITY_ORDER = ["route", "sublocality_level_3", "sublocality_level_2", "sublocality_level_1", "neighborhood", "landmark"];
+
+const NON_LINE_TYPE_TO_FIELD = {
+  locality: "cityDistrict",
+  administrative_area_level_1: "state",
+  postal_code: "pincode",
+};
 
 const ABBREVIATIONS = [
   [/\broad\b/gi, "Rd"],
@@ -78,112 +91,18 @@ function kCombinations(arr, k) {
   return [...withHead, ...withoutHead];
 }
 
-// Tries every way to partition `texts` (in order, never reordered) into 1..
-// maxLines contiguous groups, each joined by ", ". PRD 5.1 step 1's
-// "searches every possible way to group components across the 3 lines".
-// `line1Budget` lets a caller reserve room on Line 1 in advance (e.g. for a
-// "1, " prefix the digit rule may need to add) without ever slicing an
-// already-composed line after the fact — small input sizes (<=10
-// components) make brute force trivial.
-//
-// Generates EVERY valid grouping (not just the first found) and ranks them:
-// (1) a grouping whose Line 1 already ends in a digit wins outright — this
-// matters because a real numeric anchor (e.g. street_number) can end up
-// pushed onto Line 2/3 by a grouping that's merely length-valid, which would
-// otherwise trigger an unnecessary Flag:DefaultNumberInserted even though a
-// genuine number exists in the address, just not at the tail of Line 1; (2)
-// among equally-digit-compliant options, fewer lines used; (3) a fuller
-// Line 1 (packs earlier lines first, a natural reading order).
-function tryPartitions(texts, maxLineLen, maxLines, line1Budget = maxLineLen) {
-  const n = texts.length;
-  if (n === 0) return { fits: true, lines: [] };
-
-  const limitFor = (lineIdx) => (lineIdx === 0 ? line1Budget : maxLineLen);
-  const candidates = [];
-
-  const tryCuts = (cutIdxs) => {
-    const groups = [];
-    let start = 0;
-    for (const idx of cutIdxs) {
-      groups.push(texts.slice(start, idx + 1));
-      start = idx + 1;
-    }
-    groups.push(texts.slice(start));
-    const lines = groups.map((g) => g.join(", "));
-    const ok = lines.every((line, idx) => line.length <= limitFor(idx));
-    if (ok) candidates.push(lines);
-  };
-
-  const gaps = n - 1;
-  for (let groups = 1; groups <= Math.min(maxLines, n); groups += 1) {
-    const k = groups - 1;
-    if (k === 0) {
-      tryCuts([]);
-    } else {
-      for (const combo of kCombinations(rangeArray(gaps), k)) {
-        tryCuts(combo);
-      }
-    }
-  }
-
-  if (candidates.length === 0) return { fits: false, lines: null };
-
-  candidates.sort((a, b) => {
-    const aDigit = /\d$/.test((a[0] || "").trim());
-    const bDigit = /\d$/.test((b[0] || "").trim());
-    if (aDigit !== bDigit) return aDigit ? -1 : 1;
-    if (a.length !== b.length) return a.length - b.length;
-    return (b[0] || "").length - (a[0] || "").length;
-  });
-
-  return { fits: true, lines: candidates[0] };
-}
-
-// PRD 5.1 step 2: find the smallest set of (non-critical) components to
-// remove such that the remainder fits. Enumerates drop-combinations smallest-
-// count-first, cheapest-tier-first within a count, and returns the first
-// combination whose removal makes the remainder fit.
-function minimalDropSearch(orderedComponents, maxLineLen, maxLines, line1Budget) {
-  const droppableIdxs = [];
-  orderedComponents.forEach((c, i) => {
-    if (TIER_BY_TYPE[c.type] !== "critical") droppableIdxs.push(i);
-  });
-
-  for (let k = 1; k <= droppableIdxs.length; k += 1) {
-    const combos = kCombinations(droppableIdxs, k);
-    combos.sort((a, b) => {
-      const cost = (combo) =>
-        combo.reduce(
-          (sum, idx) => sum + TIER_COST[TIER_BY_TYPE[orderedComponents[idx].type]],
-          0
-        );
-      return cost(a) - cost(b);
-    });
-    for (const combo of combos) {
-      const dropSet = new Set(combo);
-      const remaining = orderedComponents.filter((_, i) => !dropSet.has(i));
-      const fit = tryPartitions(remaining.map((c) => c.text), maxLineLen, maxLines, line1Budget);
-      if (fit.fits) {
-        return {
-          dropped: combo.map((idx) => orderedComponents[idx]),
-          remaining,
-          lines: fit.lines,
-        };
-      }
-    }
-  }
-  return null;
-}
-
-// PRD 5.1 step 3: shorten a single oversized component at its own natural
-// punctuation boundary; word-level (whole-word) truncation is the loudly-
-// flagged last resort; a mid-word cut is never performed.
+// PRD 5.1 step 3 equivalent, scoped to one component's OWN text: shorten at
+// its natural internal punctuation first; a mid-word cut is a loud, flagged
+// last resort. Returns { text: null, cutMethod: "impossible" } when not even
+// one whole word fits — critical-tier fields (officeFloorTower,
+// officeBlockBuilding) treat that as genuine non-compliance (TC-4); the
+// non-critical areaLocality field falls back to a forced word-cut instead of
+// propagating null, since nothing in it is undroppable.
 function shortenAtPunctuation(text, maxLen) {
   if (maxLen <= 0) return { text: null, cutMethod: "impossible" };
   if (text.length <= maxLen) return { text, cutMethod: null };
 
   const slice = text.slice(0, maxLen);
-
   for (let i = slice.length - 1; i >= 0; i -= 1) {
     if (slice[i] === "," || slice[i] === "-") {
       const cut = text.slice(0, i).trimEnd();
@@ -191,7 +110,6 @@ function shortenAtPunctuation(text, maxLen) {
       break;
     }
   }
-
   for (let i = slice.length - 1; i >= 0; i -= 1) {
     if (slice[i] === " ") {
       const cut = text.slice(0, i).trimEnd();
@@ -199,116 +117,39 @@ function shortenAtPunctuation(text, maxLen) {
       break;
     }
   }
-
-  // Not even one whole word fits inside maxLen — shortening without a
-  // mid-word cut is impossible. Caller treats this as TC-4.
   return { text: null, cutMethod: "impossible" };
 }
 
-// Only reached once minimalDropSearch has already failed at every drop
-// count up to "drop everything droppable" — so `criticalOnly` here really is
-// the maximal remaining set. PRD scopes this step to "a single remaining
-// component"; if more than one is independently oversized, that's beyond the
-// documented algorithm and is treated as TC-4 rather than invented behavior.
-function attemptShortenAndFit(criticalOnly, maxLineLen, maxLines, line1Budget) {
-  const oversized = criticalOnly.filter((c) => c.text.length > maxLineLen);
-  if (oversized.length !== 1) return null;
-
-  const target = oversized[0];
-  const { text: shortened, cutMethod } = shortenAtPunctuation(target.text, maxLineLen);
-  if (shortened == null) return null;
-
-  const candidateComponents = criticalOnly.map((c) =>
-    c === target ? { ...c, text: shortened, shortened: true, cutMethod } : c
-  );
-  const fit = tryPartitions(candidateComponents.map((c) => c.text), maxLineLen, maxLines, line1Budget);
-  if (!fit.fits) return null;
-
-  return { components: candidateComponents, lines: fit.lines, cutMethod };
-}
-
-// Runs the full fit -> minimal-drop -> shorten cascade (PRD 5.1 steps 1-3)
-// for a given Line-1 budget. Separated out so the Line-1-digit rule (step 4)
-// can re-run this ENTIRE tier-aware search with 3 fewer chars reserved on
-// Line 1, instead of slicing an already-composed line after the fact — that
-// matters because an already-composed Line 1 is a comma-joined mix of
-// components, and blindly truncating it at a "convenient" comma could
-// silently cut away a critical (never-droppable) component's own text.
-function runFullFit(abbreviated, maxLineLen, maxLines, line1Budget) {
-  const zeroFit = tryPartitions(abbreviated.map((c) => c.text), maxLineLen, maxLines, line1Budget);
-  if (zeroFit.fits) {
-    return { lines: zeroFit.lines, filtersApplied: [] };
+// Finds the smallest-cost set of areaLocality components to drop so the
+// remainder fits maxLen when joined with ", " — same minimal-drop-search
+// idea as before (PRD 5.1 step 2), scoped to this one field instead of a
+// shared 3-line document.
+function dropAreaComponentsToFit(components, maxLen) {
+  const join = (list) => list.map((c) => c.text).join(", ");
+  if (components.length === 0 || join(components).length <= maxLen) {
+    return { kept: components, dropped: [] };
   }
 
-  const dropResult = minimalDropSearch(abbreviated, maxLineLen, maxLines, line1Budget);
-  if (dropResult) {
-    const filtersApplied = [];
-    dropResult.dropped.forEach((c) => {
-      filtersApplied.push(`Dropped:${c.type}`);
-      if (TIER_BY_TYPE[c.type] === "high") {
-        filtersApplied.push(`Flag:HighTierComponentDropped:${c.type}`);
-      }
+  const idxs = rangeArray(components.length);
+  for (let k = 1; k <= idxs.length; k += 1) {
+    const combos = kCombinations(idxs, k);
+    combos.sort((a, b) => {
+      const cost = (combo) => combo.reduce((sum, i) => sum + TIER_COST[TIER_BY_TYPE[components[i].type]], 0);
+      return cost(a) - cost(b);
     });
-    return { lines: dropResult.lines, filtersApplied };
+    for (const combo of combos) {
+      const dropSet = new Set(combo);
+      const kept = components.filter((_, i) => !dropSet.has(i));
+      if (join(kept).length <= maxLen) {
+        return { kept, dropped: combo.map((i) => components[i]) };
+      }
+    }
   }
-
-  const droppableAll = abbreviated.filter((c) => TIER_BY_TYPE[c.type] !== "critical");
-  const criticalOnly = abbreviated.filter((c) => TIER_BY_TYPE[c.type] === "critical");
-  const shortenResult = attemptShortenAndFit(criticalOnly, maxLineLen, maxLines, line1Budget);
-  if (shortenResult) {
-    const filtersApplied = droppableAll.map((c) => `Dropped:${c.type}`);
-    filtersApplied.push(
-      shortenResult.cutMethod === "word" ? "Flag:WordLevelCut" : "Shortened:PunctuationBoundary"
-    );
-    return { lines: shortenResult.lines, filtersApplied };
-  }
-
-  return null;
+  return { kept: [], dropped: components };
 }
-
-function padLines(lines, maxLines) {
-  const out = [...(lines || [])];
-  while (out.length < maxLines) out.push("");
-  return out.slice(0, maxLines);
-}
-
-// OQ-2 (open, PRD Section 8 / TC-12): when both a subpremise/premise AND a
-// street_number are present, which numeric anchor should lead Line 1? This
-// reorders components (never drops/renames them) so the chosen anchor sits
-// first among them; default ("subpremise_first") is a no-op, matching the
-// PRD's documented current behavior.
-function applyLine1Precedence(components, mode) {
-  if (mode !== "street_number_first") return components;
-
-  const idx = {};
-  components.forEach((c, i) => {
-    idx[c.type] = i;
-  });
-  const anchorIdx = Math.min(idx.subpremise ?? Infinity, idx.premise ?? Infinity);
-  const streetIdx = idx.street_number;
-  if (streetIdx === undefined || anchorIdx === Infinity || streetIdx <= anchorIdx) {
-    return components;
-  }
-
-  const arr = [...components];
-  const [streetComp] = arr.splice(streetIdx, 1);
-  arr.splice(anchorIdx, 0, streetComp);
-  return arr;
-}
-
-// Non-line, mandatory onboarding-form fields (PRD Section 1 / the uploaded
-// office-address-pipeline.js's documented output shape: "Line 1, Line 2,
-// Line 3, Pincode, City, State"). Deliberately NOT including `landmark` here
-// — CLAUDE.md 3.1 puts landmark in the Lower-tier, line-eligible/droppable
-// pool alongside sublocality_level_1/neighborhood, not a separate field.
-const NON_LINE_TYPE_TO_FIELD = {
-  locality: "city",
-  administrative_area_level_1: "state",
-  postal_code: "pincode",
-};
 
 function extractNonLineFields(rawComponents) {
-  const fields = { city: "", state: "", pincode: "" };
+  const fields = { cityDistrict: "", state: "", pincode: "" };
   for (const c of rawComponents) {
     const field = NON_LINE_TYPE_TO_FIELD[c.type];
     if (field && !fields[field]) fields[field] = c.text;
@@ -316,76 +157,142 @@ function extractNonLineFields(rawComponents) {
   return fields;
 }
 
-const NON_COMPLIANT_RESULT = (filtersApplied, nonLineFields) => ({
-  lines: null,
-  filtersApplied,
-  compliant: false,
-  requiresManualEntry: true,
-  ...nonLineFields,
-});
+function buildByType(rawComponents) {
+  const byType = {};
+  for (const c of rawComponents) {
+    if (!byType[c.type]) byType[c.type] = c;
+  }
+  return byType;
+}
 
 /**
  * rawComponents: [{ type, text }], in Google's original order.
- * options: { maxLineLength, maxLines, line1NumericPrecedence }
+ * options: { maxFieldLength, maxAreaLocalityLength }
  *
- * Returns { lines: [l1,l2,l3] | null, filtersApplied: string[], compliant,
- * requiresManualEntry, city, state, pincode }. `lines` is null when
- * requiresManualEntry is true (TC-4 — never ship a broken address, route to
- * manual entry same as TC-3). city/state/pincode are extracted independently
- * of line-packing and are returned even in the non-compliant case (PRD: all
- * fields stay editable, so whatever the source did give us is still useful).
+ * Returns { officeFloorTower, officeBlockBuilding, areaLocality, cityDistrict,
+ * state, pincode, filtersApplied, compliant, requiresManualEntry, sparseData }.
  */
 export function formatAddress(rawComponents, options = {}) {
-  const maxLineLen = options.maxLineLength ?? 32;
-  const maxLines = options.maxLines ?? 3;
-  const line1NumericPrecedence = options.line1NumericPrecedence ?? "subpremise_first";
+  const maxFieldLen = options.maxFieldLength ?? 48;
+  const maxAreaLen = options.maxAreaLocalityLength ?? 64;
 
   const nonLineFields = extractNonLineFields(rawComponents);
+  const byType = buildByType(rawComponents);
+  const filtersApplied = [];
 
-  let relevant = rawComponents.filter((c) => TIER_BY_TYPE[c.type]);
-  relevant = applyLine1Precedence(relevant, line1NumericPrecedence);
+  // ---- Major callout (Rashi, 2026-08): 50%+ of core components missing ----
+  // Strictly more than half missing (not >=) so an exactly-half case like
+  // TC-11's Silver Oak fixture keeps its existing "missing digit only"
+  // behavior instead of falling into this new, more drastic rule.
+  const presentCoreCount = CORE_COMPONENT_TYPES.filter((t) => byType[t]).length;
+  const missingCoreCount = CORE_COMPONENT_TYPES.length - presentCoreCount;
+  const sparseData = missingCoreCount > CORE_COMPONENT_TYPES.length / 2;
 
-  if (relevant.length === 0) {
-    return NON_COMPLIANT_RESULT(["Flag:NoLineEligibleComponents"], nonLineFields);
+  if (sparseData) {
+    // "Entire google location" still excludes plus_code — a Plus Code is a
+    // machine geocode string, never meant for human display anywhere
+    // (TC-15/OQ-4), sparse fallback included.
+    const fullDump = rawComponents
+      .filter((c) => c.type !== "plus_code")
+      .map((c) => c.text)
+      .filter(Boolean)
+      .join(", ");
+    filtersApplied.push("Flag:SparseDataManualEntryRequired");
+    return {
+      officeFloorTower: "",
+      officeBlockBuilding: "",
+      areaLocality: fullDump,
+      ...nonLineFields,
+      filtersApplied,
+      compliant: true,
+      requiresManualEntry: false,
+      sparseData: true,
+    };
   }
 
-  const abbreviated = relevant.map((c) => ({ ...c, text: abbreviateText(c.text) }));
-  const abbreviationFlags = [];
-  abbreviated.forEach((c, i) => {
-    if (c.text !== relevant[i].text) abbreviationFlags.push(`Abbreviation:${c.type}`);
+  const nonCompliantResult = () => ({
+    officeFloorTower: null,
+    officeBlockBuilding: null,
+    areaLocality: null,
+    ...nonLineFields,
+    filtersApplied: [...filtersApplied, "Flag:NonCompliantRouteToManualEntry"],
+    compliant: false,
+    requiresManualEntry: true,
+    sparseData: false,
   });
 
-  const attempt = runFullFit(abbreviated, maxLineLen, maxLines, maxLineLen);
-  if (!attempt) {
-    return NON_COMPLIANT_RESULT([...abbreviationFlags, "Flag:NonCompliantRouteToManualEntry"], nonLineFields);
+  // ---- Office Floor / Tower <- subpremise (critical: never dropped, only
+  // ever shortened at ITS OWN punctuation; genuinely unshortenable -> TC-4) ----
+  let officeFloorTower = "";
+  if (byType.subpremise) {
+    officeFloorTower = abbreviateText(byType.subpremise.text);
+    if (officeFloorTower !== byType.subpremise.text) filtersApplied.push("Abbreviation:subpremise");
+    if (officeFloorTower.length > maxFieldLen) {
+      const { text, cutMethod } = shortenAtPunctuation(officeFloorTower, maxFieldLen);
+      if (text == null) return nonCompliantResult();
+      officeFloorTower = text;
+      filtersApplied.push(cutMethod === "word" ? "Flag:WordLevelCut:officeFloorTower" : "Shortened:PunctuationBoundary:officeFloorTower");
+    }
   }
 
-  let filtersApplied = [...abbreviationFlags, ...attempt.filtersApplied];
-  let finalLines = attempt.lines;
+  // ---- Office Block / Building Name <- street_number + premise. Both
+  // critical, so street_number stays a fixed prefix and only premise's OWN
+  // text gets shortened if the pair is too long together — never at the
+  // join comma between them, which would silently swallow the whole
+  // building name instead of the intended "shorten one long component". ----
+  const streetNumberText = byType.street_number ? abbreviateText(byType.street_number.text) : "";
+  let premiseText = byType.premise ? abbreviateText(byType.premise.text) : "";
+  if (byType.premise && premiseText !== byType.premise.text) filtersApplied.push("Abbreviation:premise");
 
-  const line1 = (finalLines[0] || "").trim();
-  if (!/\d$/.test(line1)) {
-    let base = finalLines;
-    if (line1.length + 3 > maxLineLen) {
-      const redo = runFullFit(abbreviated, maxLineLen, maxLines, maxLineLen - 3);
-      if (!redo) {
-        return NON_COMPLIANT_RESULT([...abbreviationFlags, "Flag:NonCompliantRouteToManualEntry"], nonLineFields);
-      }
-      filtersApplied = [...abbreviationFlags, ...redo.filtersApplied];
-      base = redo.lines;
-    }
-    const prefixed = `1, ${(base[0] || "").trim()}`.trim();
-    finalLines = [prefixed, ...base.slice(1)];
+  const joinPrefixLen = streetNumberText && premiseText ? streetNumberText.length + 2 : 0;
+  const premiseBudget = maxFieldLen - joinPrefixLen;
+  if (premiseText.length > premiseBudget) {
+    const { text, cutMethod } = shortenAtPunctuation(premiseText, premiseBudget);
+    if (text == null) return nonCompliantResult();
+    premiseText = text;
+    filtersApplied.push(cutMethod === "word" ? "Flag:WordLevelCut:officeBlockBuilding" : "Shortened:PunctuationBoundary:officeBlockBuilding");
+  }
+  const officeBlockBuilding = [streetNumberText, premiseText].filter(Boolean).join(", ");
+
+  // ---- Area/Locality <- route + sublocality tiers + neighborhood + landmark
+  // (all non-critical: nothing here is undroppable, so a forced word-cut is
+  // the worst case, never a route to manual entry) ----
+  const areaComponents = AREA_LOCALITY_ORDER.map((t) => byType[t]).filter(Boolean);
+  const abbreviatedArea = areaComponents.map((c) => ({ ...c, text: abbreviateText(c.text) }));
+  abbreviatedArea.forEach((c, i) => {
+    if (c.text !== areaComponents[i].text) filtersApplied.push(`Abbreviation:${c.type}`);
+  });
+  const { kept, dropped } = dropAreaComponentsToFit(abbreviatedArea, maxAreaLen);
+  dropped.forEach((c) => {
+    filtersApplied.push(`Dropped:${c.type}`);
+    if (TIER_BY_TYPE[c.type] === "high") filtersApplied.push(`Flag:HighTierComponentDropped:${c.type}`);
+  });
+  let areaLocality = kept.map((c) => c.text).join(", ");
+  if (areaLocality.length > maxAreaLen) {
+    const { text, cutMethod } = shortenAtPunctuation(areaLocality, maxAreaLen);
+    areaLocality = text ?? areaLocality.slice(0, maxAreaLen).trim();
+    filtersApplied.push(cutMethod === "word" ? "Flag:WordLevelCut:areaLocality" : "Shortened:PunctuationBoundary:areaLocality");
+  }
+
+  // ---- Digit-anchor rule: some field must carry a real numeric identifier ----
+  // (PRD's "Line 1 must end with a digit" adapted: since there's no single
+  // lead line anymore, this now checks the two precise-location fields.)
+  const hasDigit = /\d/.test(officeFloorTower) || /\d/.test(officeBlockBuilding);
+  if (!hasDigit) {
+    officeFloorTower = officeFloorTower ? `1, ${officeFloorTower}` : "1";
     filtersApplied.push("Flag:DefaultNumberInserted");
   }
 
   return {
-    lines: padLines(finalLines, maxLines),
+    officeFloorTower,
+    officeBlockBuilding,
+    areaLocality,
+    ...nonLineFields,
     filtersApplied,
     compliant: true,
     requiresManualEntry: false,
-    ...nonLineFields,
+    sparseData: false,
   };
 }
 
-export { TIER_BY_TYPE };
+export { TIER_BY_TYPE, CORE_COMPONENT_TYPES };

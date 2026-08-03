@@ -24,20 +24,27 @@ Without a key, Live API stays exactly as before: visibly selectable but a clearl
 
 ### Running a batch of office names
 
-Developer Mode has a **Batch search** section: paste one office name per line (e.g. a list of 20) and click **Run batch** — each name goes through the same per-name pipeline as a single search (mock or live, whichever is toggled), throttled between calls in Live mode to stay under rate limits. Click a row to expand its full result detail (address lines, City/State/Pincode, `FiltersApplied`, confidence breakdown), or **Export CSV** for a spreadsheet-friendly version of the whole batch.
+Developer Mode has a **Batch search** section: paste one office name per line (e.g. a list of 20) and click **Run batch** — each name goes through the same per-name pipeline as a single search (mock or live, whichever is toggled), throttled between calls in Live mode to stay under rate limits. Click a row to expand its full result detail (Office Floor/Tower, Office Block/Building Name, Area/Locality, City/District, State, Pincode, `FiltersApplied`, confidence breakdown), or **Export CSV** for a spreadsheet-friendly version of the whole batch.
+
+### Map-assisted confirm step (User Mode)
+
+After picking (or manually starting) an address, the confirm screen has a **"Search on map"** button that opens a full-page bottom-sheet map. This is a deliberately **stylized dummy map, not real Google Maps** — no Maps JavaScript API or Geocoding API call is made. Existing result candidates plot as real pins (their actual lat/lng); tapping one re-selects that candidate; dropping a pin anywhere else simulates "no real data available here" and routes through the same sparse-data/manual-entry rule a real thin-data result would. See `CLAUDE.md` Section 4.0 ("Structured fields + map-assisted confirm") for what wiring in the real APIs later would need.
 
 ## Structure
 
 - `backend/` — Express API.
   - `src/lib/ranker.js` — `sort_office_addresses.py` ported to JS (haversine distance, fallback_relevance, stable tie-break).
-  - `src/lib/formattingPipeline.js` — a **harness-local reimplementation** of the PRD Section 5 formatting rules, now also extracting City/State/Pincode alongside the 3 address lines. `address_filter_pipeline_v2.py` is not in this repo, so this is explicitly flagged as a stand-in, not the canonical script (see the file header and the `pipelineImplementation` field on every response).
+  - `src/lib/formattingPipeline.js` — a **harness-local reimplementation** of the PRD Section 5 formatting rules, outputting the Figma's structured fields (Office Floor/Tower, Office Block/Building Name, Area/Locality, Pincode, City/District, State — see CLAUDE.md's 2026-08 "Structured-field revision" note) plus the 50%-missing-components sparse-data rule. `address_filter_pipeline_v2.py` is not in this repo, so this is explicitly flagged as a stand-in, not the canonical script (see the file header and the `pipelineImplementation` field on every response).
   - `src/lib/confidence.js` — the confidence scorer, weights approved by Rashi 2026-07-19 (see CLAUDE.md Section 4.0).
   - `src/lib/fuzzyMatch.js` — office-name matching against the mock fixture set.
   - `src/lib/mockSearch.js` — the Mock Data path: fixture lookup -> formatting pipeline -> ranker -> confidence.
   - `src/lib/livePlacesClient.js` — thin wrapper around Google Places Text Search (New).
   - `src/lib/liveSearch.js` — the Live API path: real Places call -> Google-response normalizer (incl. untyped-component decomposition for messy real data) -> the SAME formatting pipeline / ranker / confidence used by Mock Data. Also the "no key configured" stub.
-  - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py` plus named edge-case scenarios.
-- `frontend/` — React app (Vite). Single codebase, mode/data-source toggles rather than separate apps. `components/DeveloperMode/BatchRunner.jsx` is the batch-search UI.
+  - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py` plus named edge-case scenarios, including `sparse-components` (the 50%-missing demo).
+- `frontend/` — React app (Vite). Single codebase, mode/data-source toggles rather than separate apps.
+  - `components/DeveloperMode/ResultCard.jsx` — the structured-field result display, shared by the single-search view and the batch runner.
+  - `components/DeveloperMode/BatchRunner.jsx` — the batch-search UI.
+  - `components/UserMode/OfficeMapSheet.jsx` — the dummy map bottom sheet.
 
 ## Tests
 
@@ -45,4 +52,4 @@ Developer Mode has a **Batch search** section: paste one office name per line (e
 npm run test:backend
 ```
 
-Covers the ranker, the formatting pipeline's rule precedence, and fuzzy matching.
+Covers the ranker, the formatting pipeline's rule precedence (including the structured-field mapping and the sparse-data rule), the live-response normalizer, and fuzzy matching.

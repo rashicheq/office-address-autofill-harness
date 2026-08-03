@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { searchBatch } from "../../api/client.js";
-import ConfidenceBreakdown from "./ConfidenceBreakdown.jsx";
+import ResultCard from "./ResultCard.jsx";
 
 function parseNames(text) {
   return text
@@ -23,14 +23,15 @@ function toCsv(batch) {
       "Office Name Searched",
       "Match #",
       "Result Name",
-      "Line 1",
-      "Line 2",
-      "Line 3",
-      "City",
+      "Office Floor/Tower",
+      "Office Block/Building Name",
+      "Area/Locality",
+      "City/District",
       "State",
       "Pincode",
       "Confidence %",
       "Ranking Method",
+      "Sparse Data",
       "Filters Applied",
     ].join(","),
   ];
@@ -38,7 +39,7 @@ function toCsv(batch) {
     const results = entry.results || [];
     if (results.length === 0) {
       const note = entry.errorLog?.[0]?.message || entry.message || "No results";
-      rows.push([csvEscape(entry.officeName), "", "", "", "", "", "", "", "", "", "", csvEscape(note)].join(","));
+      rows.push([csvEscape(entry.officeName), "", "", "", "", "", "", "", "", "", "", "", csvEscape(note)].join(","));
       continue;
     }
     results.forEach((r, i) => {
@@ -47,14 +48,15 @@ function toCsv(batch) {
           csvEscape(entry.officeName),
           i + 1,
           csvEscape(r.name),
-          csvEscape(r.addressLines?.[0]),
-          csvEscape(r.addressLines?.[1]),
-          csvEscape(r.addressLines?.[2]),
-          csvEscape(r.city),
+          csvEscape(r.officeFloorTower),
+          csvEscape(r.officeBlockBuilding),
+          csvEscape(r.areaLocality),
+          csvEscape(r.cityDistrict),
           csvEscape(r.state),
           csvEscape(r.pincode),
           r.confidence?.score ?? "",
           csvEscape(entry.ranking_method),
+          r.sparseData ? "yes" : "",
           csvEscape((r.FiltersApplied || []).join(" | ")),
         ].join(",")
       );
@@ -183,38 +185,7 @@ export default function BatchRunner({ dataSource, liveApiConfigured, currentLoca
                       <p className="muted">{entry.errorLog?.[0]?.message || entry.message || "No results."}</p>
                     )}
                     {results.map((r) => (
-                      <div className="dev-result-card" key={r.place_id}>
-                        <div className="dev-result-header">
-                          <strong>{r.name}</strong>
-                          {r.distance_km != null && <span className="chip">{r.distance_km} km</span>}
-                          {r.distance_km == null && <span className="chip chip-warn">no distance (fallback)</span>}
-                          {r.requiresManualEntry && <span className="chip chip-error">non-compliant → manual entry</span>}
-                        </div>
-                        {r.addressLines && (
-                          <div className="dev-result-lines">
-                            {r.addressLines.filter(Boolean).map((l, li) => (
-                              <div key={li}>{l}</div>
-                            ))}
-                          </div>
-                        )}
-                        {(r.city || r.state || r.pincode) && (
-                          <div className="dev-result-fields">
-                            <span>City: {r.city || <em>—</em>}</span>
-                            <span>State: {r.state || <em>—</em>}</span>
-                            <span>Pincode: {r.pincode || <em>—</em>}</span>
-                          </div>
-                        )}
-                        {r.FiltersApplied?.length > 0 && (
-                          <div className="filters-applied">
-                            {r.FiltersApplied.map((f, fi) => (
-                              <span className="chip chip-filter" key={fi}>
-                                {f}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <ConfidenceBreakdown confidence={r.confidence} />
-                      </div>
+                      <ResultCard result={r} key={r.place_id} />
                     ))}
                     {entry.errorLog?.length > 0 && (
                       <ul className="error-log">

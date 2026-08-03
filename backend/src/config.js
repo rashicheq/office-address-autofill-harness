@@ -4,8 +4,12 @@
 // elsewhere in the backend.
 
 export const CONFIG = {
-  MAX_LINE_LENGTH: 32,
-  MAX_LINES: 3,
+  // Per-field max length (2026-08 structured-field revision). Office
+  // Floor/Tower and Office Block/Building Name are each normally a single
+  // short value, so a generous cap rarely engages; Area/Locality combines
+  // more components so gets a larger budget.
+  MAX_FIELD_LENGTH: 48,
+  MAX_AREA_LOCALITY_LENGTH: 64,
 
   // Below this name-match score, a fixture is treated as not-a-match at all
   // (i.e. contributes to a TC-3 empty result rather than a weak-but-present one).
@@ -15,13 +19,6 @@ export const CONFIG = {
   // one — matches the point sort_office_addresses.py's own __main__ demo uses
   // (Scenario A: "user's current address is near Koramangala").
   DEFAULT_CURRENT_LOCATION: { latitude: 12.9352, longitude: 77.6245 },
-
-  // OQ-2 (PRD Section 8, TC-12): when both a subpremise/floor AND a
-  // street_number are present, which numeric anchor should lead Line 1?
-  // "subpremise_first" matches the PRD's documented *current* behavior.
-  // "street_number_first" is the raised-but-unresolved alternative. This is
-  // deliberately a config flag, not a hardcoded pick — flip it to compare.
-  LINE1_NUMERIC_PRECEDENCE: "subpremise_first",
 };
 
 // Surfaced verbatim in GET /meta and in Dev Mode's "open questions" panel —
@@ -31,8 +28,9 @@ export const OPEN_QUESTIONS = [
   {
     id: "OQ-2",
     question: "Should street_number outrank subpremise/floor for Line 1 when both are present?",
-    status: "open",
-    currentDefault: `CONFIG.LINE1_NUMERIC_PRECEDENCE = "${CONFIG.LINE1_NUMERIC_PRECEDENCE}" (backend/src/config.js)`,
+    status: "resolved-by-restructuring",
+    currentDefault:
+      "Moot since the 2026-08 structured-field revision: subpremise now owns Office Floor/Tower and street_number owns (part of) Office Block/Building Name — they no longer compete for the same field.",
     prdRef: "PRD Section 8 / TC-12",
   },
   {

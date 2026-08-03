@@ -44,6 +44,10 @@ const INTEGRITY_PENALTIES = [
   { prefix: "Shortened:PunctuationBoundary", penalty: 0.15 },
   { prefix: "Flag:WordLevelCut", penalty: 0.35 },
   { prefix: "Flag:DefaultNumberInserted", penalty: 0.45 },
+  // Major callout (Rashi, 2026-08): 50%+ of core components missing -> the
+  // two most precise fields are left blank for manual entry, so this should
+  // weigh heavily, comparable to the digit-default case.
+  { prefix: "Flag:SparseDataManualEntryRequired", penalty: 0.4 },
 ];
 
 export function scoreFormattingIntegrity(filtersApplied = []) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchScenarios, fetchMeta } from "../../api/client.js";
-import ConfidenceBreakdown from "./ConfidenceBreakdown.jsx";
+import ResultCard from "./ResultCard.jsx";
 import BatchRunner from "./BatchRunner.jsx";
 
 // Same input box as User Mode (CLAUDE.md 4: "same input box, but the output
@@ -151,43 +151,7 @@ export default function DeveloperModeView({ searchState, dataSource, liveApiConf
               <h3>Results ({response.results.length})</h3>
               {response.results.length === 0 && <p className="muted">No results.</p>}
               {response.results.map((r) => (
-                <div className="dev-result-card" key={r.place_id}>
-                  <div className="dev-result-header">
-                    <strong>{r.name}</strong>
-                    {r.distance_km != null && <span className="chip">{r.distance_km} km</span>}
-                    {r.distance_km == null && <span className="chip chip-warn">no distance (fallback)</span>}
-                    {r.coworkingAmbiguous && (
-                      <span className="chip chip-warn">co-working: confirm floor/unit</span>
-                    )}
-                    {r.requiresManualEntry && (
-                      <span className="chip chip-error">non-compliant → manual entry</span>
-                    )}
-                  </div>
-                  {r.addressLines && (
-                    <div className="dev-result-lines">
-                      {r.addressLines.filter(Boolean).map((l, i) => (
-                        <div key={i}>{l}</div>
-                      ))}
-                    </div>
-                  )}
-                  {(r.city || r.state || r.pincode) && (
-                    <div className="dev-result-fields">
-                      <span>City: {r.city || <em>—</em>}</span>
-                      <span>State: {r.state || <em>—</em>}</span>
-                      <span>Pincode: {r.pincode || <em>—</em>}</span>
-                    </div>
-                  )}
-                  {r.FiltersApplied.length > 0 && (
-                    <div className="filters-applied">
-                      {r.FiltersApplied.map((f, i) => (
-                        <span className="chip chip-filter" key={i}>
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <ConfidenceBreakdown confidence={r.confidence} />
-                </div>
+                <ResultCard result={r} key={r.place_id} />
               ))}
 
               <h3>Error / failure log</h3>

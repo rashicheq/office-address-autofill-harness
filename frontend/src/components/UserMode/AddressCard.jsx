@@ -1,5 +1,13 @@
 export default function AddressCard({ result, selected, onSelect }) {
-  const text = (result.addressLines || []).filter(Boolean).join(", ");
+  const text = [
+    result.officeFloorTower,
+    result.officeBlockBuilding,
+    result.areaLocality,
+    result.cityDistrict,
+    result.state,
+  ]
+    .filter(Boolean)
+    .join(", ");
   return (
     <div
       className={selected ? "address-card selected" : "address-card"}

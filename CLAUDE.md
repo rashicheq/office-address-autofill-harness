@@ -19,6 +19,8 @@ A **local test harness** — not the production feature — for validating the O
 
 This is explicitly **V2** (fully automated fetch-and-arrange), not V1 (map-assisted manual pin) — see PRD Section 3 for why V1 ships first in production, but this harness is for validating the V2 script/ranking logic ahead of that decision.
 
+> **Map-assisted confirm step added (2026-08):** Rashi asked to fold a map/pin-drop confirmation step into this V2 flow too — see the "Structured fields + map-assisted confirm" note under 4.0. This is V1's core interaction (pin placement) grafted onto V2's auto-fetch flow, not a switch back to V1; V2's auto-fetch-and-arrange is still what runs first, the map is a confirm/override step on top of it.
+
 ## 3. Product requirements this must respect (from the PRD)
 
 ### 3.1 Address formatting rules (`address_filter_pipeline_v2.py` — already built, treat as source of truth if present in repo; otherwise stub it out and flag that it's a stub)
@@ -35,12 +37,18 @@ Precedence, checked in this exact order — do not reorder:
 
 **Every drop, abbreviation, shorten, or default must be recorded in a `FiltersApplied` list** — this is what Developer Mode surfaces per result.
 
+> **Structured-field revision (2026-08):** the Figma screens (attached, now in this repo's context) use named fields — Office Pin Code, Office Floor/Tower, Office Block/Building Name, Area/Locality, City/District, State — not generic Line 1/2/3. The rules script now outputs those fields directly instead: `subpremise` → Office Floor/Tower, `premise` (+ `street_number`) → Office Block/Building Name, `route`/`sublocality_level_1/2/3`/`neighborhood`/`landmark` → Area/Locality (still dropped lowest-tier-first if too long, same priority order as above), `postal_code`/`locality`/`administrative_area_level_1` → Pincode/City-District/State unchanged. The 3-lines/32-char constraint is gone — each field now has its own generous length budget (`CONFIG.MAX_FIELD_LENGTH` / `MAX_AREA_LOCALITY_LENGTH`, backend/src/config.js) since fields no longer compete for shared line space. This resolves OQ-2 by construction: subpremise and street_number now have separate homes instead of competing for "Line 1."
+>
+> **Major callout, sparse data (Rashi, 2026-08):** if 50%+ of the core address components are missing (`CORE_COMPONENT_TYPES` in `formattingPipeline.js`: subpremise/premise/street_number/route/sublocality_level_1/neighborhood — strictly more than half missing, so an exactly-half case stays on the ordinary missing-digit path instead), the rules script gives up on Office Floor/Tower and Office Block/Building Name entirely, dumps the full raw Google location text into Area/Locality, and leaves both precise fields blank for the user to fill in manually (`Flag:SparseDataManualEntryRequired`). The specific 6-type list and the "more than half" cutoff are my own concrete pick to make "50%+" testable — flagged here in case a different denominator was intended.
+
 ### 3.2 Proximity ranking (`sort_office_addresses.py` — in this repo)
 
 - Sorts multiple office matches by haversine distance from the user's current-address geocode, closest first.
 - If current-address geocode is unavailable (TC-17/TC-19), falls back to **preserving Google's own relevance order** — never fabricate a distance sort. Return `ranking_method: "fallback_relevance"` and surface this explicitly in Dev Mode.
 - Ties/near-ties (TC-18) keep Google's original relative order (stable sort) as the implicit tie-break.
 - Port this Python logic into the backend (Node) or shell out to Python — your call, but keep the same edge-case behavior and the same `ranking_method` / `distance_km` fields so the frontend logic doesn't need to know which.
+
+> Note (2026-08): the map-assisted confirm step's "closest office to the user's current address" (see 4.0) is this same distance-based ranker, already-built — not a separate Pincode-numeric-comparison. The map just surfaces the #1-ranked candidate as the pre-selected pin.
 
 ### 3.3 Test cases the harness should be able to reproduce / demonstrate
 
@@ -53,7 +61,9 @@ Priority P0 cases to actually exercise in this harness (not just document):
 - TC-11: no numeric component anywhere → `Flag:DefaultNumberInserted` fires and is visible
 - TC-17/TC-19: no usable current-address geocode → fallback_relevance, not fake distance
 
-P1/P2 (worth having, not blocking): TC-8 (co-working space subpremise ambiguity), TC-10 (dedup near-identical listings), TC-12 (street_number vs subpremise precedence — OQ-2, still open, make this a config flag not a hardcoded choice), TC-16 (leave artifact characters like stray quotes verbatim by default).
+P1/P2 (worth having, not blocking): TC-8 (co-working space subpremise ambiguity), TC-10 (dedup near-identical listings), TC-12 (street_number vs subpremise precedence — resolved 2026-08, see 3.1), TC-16 (leave artifact characters like stray quotes verbatim by default).
+
+Not a numbered PRD test case, but exercised the same way (named Dev Mode scenario `sparse-components`): the 2026-08 "50%+ components missing" sparse-data rule (see 3.1).
 
 ### 3.4 Cross-cutting rules (apply everywhere, no exceptions)
 1. Auto-fill is always a starting point — every field stays editable pre-submission.
@@ -77,6 +87,8 @@ Current phase does **not** require a Google API key at all. Build and validate e
 
 > **Live phase started (2026-07-27):** Rashi explicitly requested real Google Places integration — a prototype to add a real `GOOGLE_PLACES_API_KEY` and batch-run a list of real office names through the rules. The Live branch is now implemented for real (`backend/src/lib/liveSearch.js` + `livePlacesClient.js`), gated on `GOOGLE_PLACES_API_KEY` being present in `backend/.env` (see `backend/.env.example`) — with no key configured, the UI/API behave exactly as before (visible-but-stubbed). As anticipated above, this reused the mock branch's formatting pipeline / ranker / confidence scorer unchanged rather than forking a second pipeline. New in this pass: `formatAddress` now also extracts `city`/`state`/`pincode` as separate fields (the PRD's full onboarding-field list, previously only the 3 address lines were produced), and `POST /search/batch` + a Developer Mode batch runner let a whole list of office names be run in one pass instead of one at a time. No real API key or the 20 office names were available in the session that built this — the request/error paths were verified against a fake key (a real 400 from Google, handled gracefully), but the success path against real data is still unverified and worth a first real run before trusting its output.
 
+> **Structured fields + map-assisted confirm (2026-08):** Rashi asked for a fuller onboarding flow: after the name search, the address-details step now shows a pre-filled office name with a "Search on map" CTA that opens a full-page bottom sheet map (`frontend/src/components/UserMode/OfficeMapSheet.jsx`). Existing candidates plot as real pins (their actual mock/live lat-lng); the closest (per the ranker, see 3.2) is pre-selected; tapping another pin re-selects that candidate; dropping a pin anywhere else simulates a location with no real data available (the sparse-data rule kicks in, forcing manual entry of the two precise fields) — this is a deliberate choice, not an oversight: **explicitly per Rashi's instruction, the map is a stylized dummy, not real Google Maps** — no Maps JavaScript API or Geocoding API call is made anywhere. Wiring the real ones later needs: (1) enabling both APIs in the same Google Cloud project, (2) a *separate*, domain-restricted key for the Maps JS SDK, since that key is necessarily browser-visible unlike the Places key — different security model from Section 6 below, worth re-reading before wiring it in. TC-3 (no match) now also opens the map sheet, empty, with a landmark text box; dropping a pin there (or on any blank spot) takes the same simulated/sparse path.
+
 ### Stack
 - Backend: Node/Express. One route, e.g. `POST /search`, that:
   - Reads `dataSource` (`mock` | `live`) from the request.
@@ -86,8 +98,8 @@ Current phase does **not** require a Google API key at all. Build and validate e
   - Returns: raw response (mock or live), formatted/ranked results, `FiltersApplied` per result, `ranking_method`, per-result confidence score + its inputs, timing/latency, and `source`.
   - `POST /search/batch` runs the same per-name logic over a list of office names in one call (throttled between names in live mode) — see `backend/src/routes/search.js`.
 - Frontend: React. Modes toggled by switches, not separate apps:
-  - **User Mode** — replicate the attached Figma screens: text input for office name → list of returned addresses as selectable options → "Add a Different Address" to free-type/edit. Should look and feel like the real onboarding step, not a debug tool. Works fully against mock data now.
-  - **Developer Mode** — same input box, but the output panel shows: the exact request that was made (mock lookup or live), the raw response, `ranking_method`, `distance_km` per result, `FiltersApplied` per result, the confidence score breakdown (see below), `source` (mock/live), a picker for named mock scenarios, a batch runner for a whole list of office names at once, and a visible error/failure log (empty results, TC-17/18/19 triggers, live API failures) with which test case each maps to.
+  - **User Mode** — replicate the attached Figma screens: text input for office name → list of returned addresses as selectable options → "Add a Different Address" to free-type/edit → confirm screen with the structured fields (Office Pin Code, Office Floor/Tower, Office Block/Building Name, Area/Locality, City/District, State) and the "Search on map" bottom-sheet confirm step. Should look and feel like the real onboarding step, not a debug tool. Works fully against mock data now.
+  - **Developer Mode** — same input box, but the output panel shows: the exact request that was made (mock lookup or live), the raw response, `ranking_method`, `distance_km` per result, the structured fields + `FiltersApplied` per result (`ResultCard.jsx`, shared with the batch runner), the confidence score breakdown (see below), `source` (mock/live), a picker for named mock scenarios, a batch runner for a whole list of office names at once, and a visible error/failure log (empty results, TC-17/18/19 triggers, live API failures, sparse-data triggers) with which test case each maps to.
 
 ### Confidence score — define before building
 This has no existing spec, so pick concrete inputs rather than a black-box number. Reasonable starting components (combine into a weighted score, show the components in Dev Mode, not just the total):
@@ -101,8 +113,8 @@ Do not treat this as solved — flag it back to Rashi as an open item if the wei
 > **Resolved (2026-07-19):** Rashi reviewed and approved the "balanced-risk" weighting — Name-match 30% / Geocode-completeness 25% / Formatting integrity 30% / Ranking certainty 15% — over an equal-weight and a compliance-weighted alternative. Single-candidate results (nothing to rank against) score the ranking-certainty component as a neutral 1.0 rather than being penalized or reweighted. See `backend/src/lib/confidence.js` for the implementation — the weights are a named constant, easy to revisit.
 
 ## 5. Explicit non-goals for this harness
-- Not building V1 (map-pin) — that's a separate, already-lower-risk flow.
-- Not solving OQ-2 (street_number vs subpremise precedence) or OQ-3 (whether to prompt the user for a floor number instead of defaulting "1") — surface these as open flags in Dev Mode, don't silently pick an answer.
+- ~~Not building V1 (map-pin)~~ — **superseded 2026-08**: Rashi asked to fold V1's pin-drop confirm interaction into this V2 flow (see 4.0's "Structured fields + map-assisted confirm" note). Still not a full switch to V1 — the map is a confirm/override step on top of V2's auto-fetch, and it's a stylized dummy, not a real Google Maps integration.
+- OQ-2 (street_number vs subpremise precedence) is resolved by the 2026-08 structured-field revision (see 3.1) — the two no longer compete for the same field. OQ-3 (whether to prompt the user for a floor number instead of defaulting "1") is still open — surface it as a flag in Dev Mode, don't silently pick an answer.
 - Not handling international/remote-employee addressing (TC-5/TC-13/TC-20) — out of scope for this harness; a plain "not applicable" stub is enough.
 - ~~Not integrating the live Google Places API in this phase~~ — **superseded 2026-07-27** (see 4.0's "Live phase started" note): Rashi explicitly asked to start this phase. Live calls now happen when `GOOGLE_PLACES_API_KEY` is configured; with no key configured, behavior is unchanged from before this note.
 

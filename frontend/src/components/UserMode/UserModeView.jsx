@@ -1,24 +1,44 @@
 import { useState } from "react";
 import AddressCard from "./AddressCard.jsx";
+import OfficeMapSheet from "./OfficeMapSheet.jsx";
 
-const EMPTY_LINES = ["", "", ""];
-const EMPTY_FIELDS = { city: "", state: "", pincode: "" };
+const EMPTY_FIELDS = {
+  pincode: "",
+  officeFloorTower: "",
+  officeBlockBuilding: "",
+  areaLocality: "",
+  cityDistrict: "",
+  state: "",
+};
+
+function fieldsFromResult(result) {
+  return {
+    pincode: result.pincode || "",
+    officeFloorTower: result.officeFloorTower || "",
+    officeBlockBuilding: result.officeBlockBuilding || "",
+    areaLocality: result.areaLocality || "",
+    cityDistrict: result.cityDistrict || "",
+    state: result.state || "",
+  };
+}
 
 // Replicates the attached Figma screens (office-name search -> selectable
-// address list -> "Add a Different Address" free-type escape hatch) closely
-// enough to feel like the real onboarding step, not a debug tool. Every
-// pre-filled field stays editable (PRD cross-cutting rule: auto-fill is a
-// starting point, never a locked value) — confidence score, FiltersApplied,
-// and ranking_method are deliberately NOT shown here; that's Dev Mode's job.
+// address list -> "Add a Different Address" free-type escape hatch, plus the
+// map-assisted pin-confirm step) closely enough to feel like the real
+// onboarding step, not a debug tool. Every pre-filled field stays editable
+// (PRD cross-cutting rule: auto-fill is a starting point, never a locked
+// value) — confidence score, FiltersApplied, and ranking_method are
+// deliberately NOT shown here; that's Dev Mode's job.
 export default function UserModeView({ searchState, dataSource, liveApiConfigured }) {
   const { response, loading, error, runSearch } = searchState;
   const [officeName, setOfficeName] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  const [lines, setLines] = useState(EMPTY_LINES);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [showManual, setShowManual] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [sparseNotice, setSparseNotice] = useState(false);
+  const [showMapSheet, setShowMapSheet] = useState(false);
 
   const isBlocked = dataSource === "live" && !liveApiConfigured;
 
@@ -28,32 +48,28 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
     setSelectedId(null);
     setShowManual(false);
     setConfirmed(false);
-    setLines(EMPTY_LINES);
+    setSparseNotice(false);
     setFields(EMPTY_FIELDS);
     await runSearch({ officeName });
+  };
+
+  const applyResult = (result) => {
+    setFields(fieldsFromResult(result));
+    setSparseNotice(Boolean(result.sparseData));
   };
 
   const handleSelect = (result) => {
     setSelectedId(result.place_id);
     setShowManual(false);
     setConfirmed(false);
-    setLines([
-      result.addressLines?.[0] || "",
-      result.addressLines?.[1] || "",
-      result.addressLines?.[2] || "",
-    ]);
-    setFields({
-      city: result.city || "",
-      state: result.state || "",
-      pincode: result.pincode || "",
-    });
+    applyResult(result);
   };
 
   const handleManualStart = () => {
     setShowManual(true);
     setSelectedId(null);
     setConfirmed(false);
-    setLines(EMPTY_LINES);
+    setSparseNotice(false);
     setFields(EMPTY_FIELDS);
   };
 
@@ -61,20 +77,21 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
     setShowManual(false);
     setSelectedId(null);
     setConfirmed(false);
-    setLines(EMPTY_LINES);
+    setSparseNotice(false);
     setFields(EMPTY_FIELDS);
-  };
-
-  const updateLine = (index, value) => {
-    setLines((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return next;
-    });
   };
 
   const updateField = (key, value) => {
     setFields((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleMapConfirm = (result) => {
+    setShowMapSheet(false);
+    if (!result) return;
+    setSelectedId(result.place_id);
+    setShowManual(false);
+    setConfirmed(false);
+    applyResult(result);
   };
 
   // TC-4 (can't be made compliant) routes to the same empty-state / manual-
@@ -185,26 +202,65 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
             <div className="address-editor">
               <h3>{showManual ? "Enter your office address" : "Confirm your address"}</h3>
               <p className="editor-hint">Every field stays editable — review before continuing.</p>
-              {[0, 1, 2].map((i) => (
-                <label className="field" key={i}>
-                  Line {i + 1}
-                  <input value={lines[i]} onChange={(e) => updateLine(i, e.target.value)} />
+
+              <div className="office-name-row">
+                <label className="field office-name-field">
+                  Office name
+                  <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
                 </label>
-              ))}
+                <button type="button" className="secondary-btn" onClick={() => setShowMapSheet(true)}>
+                  Search on map
+                </button>
+              </div>
+
+              {sparseNotice && (
+                <div className="notice notice-blocked">
+                  We could only find an approximate area for this office — please fill in Office Floor/Tower and
+                  Office Block/Building Name yourself below.
+                </div>
+              )}
+
+              <label className="field">
+                Office Pin Code
+                <input value={fields.pincode} onChange={(e) => updateField("pincode", e.target.value)} />
+              </label>
+
+              {fields.cityDistrict && fields.state && (
+                <p className="pincode-confirm">
+                  <span aria-hidden="true">✓</span> {fields.cityDistrict}, {fields.state}
+                </p>
+              )}
+
+              <label className="field">
+                Office Floor / Tower
+                <input
+                  value={fields.officeFloorTower}
+                  onChange={(e) => updateField("officeFloorTower", e.target.value)}
+                />
+              </label>
+              <label className="field">
+                Office Block / Building Name
+                <input
+                  value={fields.officeBlockBuilding}
+                  onChange={(e) => updateField("officeBlockBuilding", e.target.value)}
+                />
+              </label>
+              <label className="field">
+                Area/Locality
+                <input value={fields.areaLocality} onChange={(e) => updateField("areaLocality", e.target.value)} />
+              </label>
+
               <div className="field-row">
                 <label className="field">
-                  City
-                  <input value={fields.city} onChange={(e) => updateField("city", e.target.value)} />
+                  City/District
+                  <input value={fields.cityDistrict} disabled />
                 </label>
                 <label className="field">
                   State
-                  <input value={fields.state} onChange={(e) => updateField("state", e.target.value)} />
-                </label>
-                <label className="field">
-                  Pincode
-                  <input value={fields.pincode} onChange={(e) => updateField("pincode", e.target.value)} />
+                  <input value={fields.state} disabled />
                 </label>
               </div>
+
               <div className="editor-actions">
                 <button type="button" className="primary-btn" onClick={() => setConfirmed(true)}>
                   Confirm and Continue
@@ -220,6 +276,15 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
           )}
         </div>
       </div>
+
+      {showMapSheet && (
+        <OfficeMapSheet
+          officeName={officeName}
+          candidates={response?.results || []}
+          onConfirm={handleMapConfirm}
+          onClose={() => setShowMapSheet(false)}
+        />
+      )}
     </div>
   );
 }
