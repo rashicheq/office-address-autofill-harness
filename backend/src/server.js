@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { searchRouter } from "./routes/search.js";
-import { listScenarios } from "./lib/mockSearch.js";
+import { listScenarios, listSuggestions } from "./lib/mockSearch.js";
 import { CONFIG, OPEN_QUESTIONS } from "./config.js";
 import { isLiveApiConfigured } from "./lib/liveSearch.js";
 
@@ -20,6 +20,12 @@ app.get("/health", (req, res) => {
 // never hardcodes fixture data.
 app.get("/scenarios", (req, res) => {
   res.json({ scenarios: listScenarios() });
+});
+
+// User Mode's search-sheet suggestions (mocks Places Autocomplete — no key
+// for that API yet, see CLAUDE.md 4.0's 2026-08 flow-correction note).
+app.get("/suggest", (req, res) => {
+  res.json({ suggestions: listSuggestions(req.query.q) });
 });
 
 // Dev Mode's "open questions" panel — surfaces OQ-2/OQ-3/OQ-4/OQ-7 and the

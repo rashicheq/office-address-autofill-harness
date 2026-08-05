@@ -33,3 +33,7 @@ export function fetchScenarios() {
 export function fetchMeta() {
   return getJSON("/meta");
 }
+
+export function fetchSuggestions(query) {
+  return getJSON(`/suggest?q=${encodeURIComponent(query)}`);
+}

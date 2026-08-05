@@ -10,6 +10,7 @@ export default defineConfig({
     proxy: {
       "/search": "http://localhost:8787",
       "/scenarios": "http://localhost:8787",
+      "/suggest": "http://localhost:8787",
       "/meta": "http://localhost:8787",
       "/health": "http://localhost:8787",
     },

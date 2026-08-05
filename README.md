@@ -26,9 +26,16 @@ Without a key, Live API stays exactly as before: visibly selectable but a clearl
 
 Developer Mode has a **Batch search** section: paste one office name per line (e.g. a list of 20) and click **Run batch** — each name goes through the same per-name pipeline as a single search (mock or live, whichever is toggled), throttled between calls in Live mode to stay under rate limits. Click a row to expand its full result detail (Office Floor/Tower, Office Block/Building Name, Area/Locality, City/District, State, Pincode, `FiltersApplied`, confidence breakdown), or **Export CSV** for a spreadsheet-friendly version of the whole batch.
 
-### Map-assisted confirm step (User Mode)
+### Career Info flow (User Mode)
 
-After picking (or manually starting) an address, the confirm screen has a **"Search on map"** button that opens a full-page bottom-sheet map. This is a deliberately **stylized dummy map, not real Google Maps** — no Maps JavaScript API or Geocoding API call is made. Existing result candidates plot as real pins (their actual lat/lng); tapping one re-selects that candidate; dropping a pin anywhere else simulates "no real data available here" and routes through the same sparse-data/manual-entry rule a real thin-data result would. See `CLAUDE.md` Section 4.0 ("Structured fields + map-assisted confirm") for what wiring in the real APIs later would need.
+User Mode opens on **Company Details** (name/designation/email/experience). Submitting it opens a full-page bottom sheet immediately — a search bar pre-filled with the company name ("like Google Maps' search bar, but without the map view"), with live suggestions as you type. This mocks Google Places Autocomplete (no key/setup for that API either) via `GET /suggest`, scanning the fixture set:
+
+- **Office** suggestions (a real company/place) run the full rules script — every field populates.
+- **Area** suggestions (a bare locality, e.g. "Koramangala") only populate Area/Locality + City/District/State/Pincode — Office Floor/Tower and Office Block/Building Name stay blank for manual entry, since that's genuinely all a locality-level match gives you. This is the same sparse-data rule as any other thin result, not a special case.
+- Multiple branches (e.g. "Vantage Corp") show a second in-sheet step to pick the specific one, closest pre-selected.
+- No match → "Enter address manually instead" — never a dead end.
+
+No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 ("Search-sheet flow correction") for what wiring in the real ones later would need.
 
 ## Structure
 
@@ -40,11 +47,13 @@ After picking (or manually starting) an address, the confirm screen has a **"Sea
   - `src/lib/mockSearch.js` — the Mock Data path: fixture lookup -> formatting pipeline -> ranker -> confidence.
   - `src/lib/livePlacesClient.js` — thin wrapper around Google Places Text Search (New).
   - `src/lib/liveSearch.js` — the Live API path: real Places call -> Google-response normalizer (incl. untyped-component decomposition for messy real data) -> the SAME formatting pipeline / ranker / confidence used by Mock Data. Also the "no key configured" stub.
-  - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py` plus named edge-case scenarios, including `sparse-components` (the 50%-missing demo).
+  - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py`, named edge-case scenarios (including `sparse-components`, the 50%-missing demo), and `kind: "area"` entries used by the search-sheet's area suggestions.
+  - `listSuggestions` (in `mockSearch.js`) — backs `GET /suggest`, the mocked autocomplete for the search sheet.
 - `frontend/` — React app (Vite). Single codebase, mode/data-source toggles rather than separate apps.
   - `components/DeveloperMode/ResultCard.jsx` — the structured-field result display, shared by the single-search view and the batch runner.
   - `components/DeveloperMode/BatchRunner.jsx` — the batch-search UI.
-  - `components/UserMode/OfficeMapSheet.jsx` — the dummy map bottom sheet.
+  - `components/UserMode/CompanyDetailsView.jsx` — the Career Info intake screen (Company Name feeds the search).
+  - `components/UserMode/OfficeSearchSheet.jsx` — the search-bar bottom sheet (office/area suggestions + multi-branch picker).
 
 ## Tests
 

@@ -103,6 +103,7 @@
       "key": "tc1-vantage-multi-branch",
       "kind": "scenario",
       "testCase": "TC-1",
+      "userFacing": true,
       "label": "Multiple branches — ordered closest to farthest",
       "description": "One company, four branch addresses at different distances from the reference current-location. Demonstrates the base proximity-ranking happy path: the list below is deliberately NOT in distance order, so a visibly different order on output proves the ranker did something.",
       "names": ["Vantage Corp", "Vantage Corp", "Vantage", "Vantage Corporate Office"],
@@ -374,6 +375,116 @@
             { "type": "locality", "text": "Bengaluru" },
             { "type": "administrative_area_level_1", "text": "Karnataka" },
             { "type": "postal_code", "text": "560048" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "area-koramangala",
+      "kind": "area",
+      "label": "Koramangala, Bengaluru",
+      "description": "Area-only match (no floor/building/street data) — for the search-sheet's mixed office/area suggestions. Selecting an area result only fills Area/Locality; the sparse-data rule leaves Office Floor/Tower and Office Block/Building Name blank for manual entry, same as any other thin Google result.",
+      "names": ["Koramangala", "Koramangala, Bengaluru"],
+      "candidates": [
+        {
+          "place_id": "MOCK-area-koramangala",
+          "name": "Koramangala, Bengaluru",
+          "location": { "latitude": 12.9352, "longitude": 77.6146 },
+          "formattedAddress": "Koramangala, Bengaluru, Karnataka 560034, India",
+          "addressComponents": [
+            { "type": "sublocality_level_1", "text": "Koramangala" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560034" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "area-whitefield",
+      "kind": "area",
+      "label": "Whitefield, Bengaluru",
+      "description": "Area-only match — see area-koramangala.",
+      "names": ["Whitefield", "Whitefield, Bengaluru"],
+      "candidates": [
+        {
+          "place_id": "MOCK-area-whitefield",
+          "name": "Whitefield, Bengaluru",
+          "location": { "latitude": 12.9698, "longitude": 77.75 },
+          "formattedAddress": "Whitefield, Bengaluru, Karnataka 560066, India",
+          "addressComponents": [
+            { "type": "sublocality_level_1", "text": "Whitefield" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560066" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "area-indiranagar",
+      "kind": "area",
+      "label": "Indiranagar, Bengaluru",
+      "description": "Area-only match — see area-koramangala.",
+      "names": ["Indiranagar", "Indiranagar, Bengaluru"],
+      "candidates": [
+        {
+          "place_id": "MOCK-area-indiranagar",
+          "name": "Indiranagar, Bengaluru",
+          "location": { "latitude": 12.9716, "longitude": 77.6412 },
+          "formattedAddress": "Indiranagar, Bengaluru, Karnataka 560038, India",
+          "addressComponents": [
+            { "type": "sublocality_level_1", "text": "Indiranagar" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560038" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "area-electronic-city",
+      "kind": "area",
+      "label": "Electronic City, Bengaluru",
+      "description": "Area-only match — see area-koramangala.",
+      "names": ["Electronic City", "Electronic City, Bengaluru"],
+      "candidates": [
+        {
+          "place_id": "MOCK-area-electronic-city",
+          "name": "Electronic City, Bengaluru",
+          "location": { "latitude": 12.8452, "longitude": 77.6602 },
+          "formattedAddress": "Electronic City, Bengaluru, Karnataka 560100, India",
+          "addressComponents": [
+            { "type": "sublocality_level_1", "text": "Electronic City" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560100" },
+            { "type": "country", "text": "India" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "area-marathahalli",
+      "kind": "area",
+      "label": "Marathahalli, Bengaluru",
+      "description": "Area-only match — see area-koramangala.",
+      "names": ["Marathahalli", "Marathahalli, Bengaluru"],
+      "candidates": [
+        {
+          "place_id": "MOCK-area-marathahalli",
+          "name": "Marathahalli, Bengaluru",
+          "location": { "latitude": 12.9564797, "longitude": 77.6998334 },
+          "formattedAddress": "Marathahalli, Bengaluru, Karnataka 560037, India",
+          "addressComponents": [
+            { "type": "sublocality_level_1", "text": "Marathahalli" },
+            { "type": "locality", "text": "Bengaluru" },
+            { "type": "administrative_area_level_1", "text": "Karnataka" },
+            { "type": "postal_code", "text": "560037" },
             { "type": "country", "text": "India" }
           ]
         }

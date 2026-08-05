@@ -1,7 +1,6 @@
 import { useState } from "react";
 import CompanyDetailsView from "./CompanyDetailsView.jsx";
-import AddressCard from "./AddressCard.jsx";
-import OfficeMapSheet from "./OfficeMapSheet.jsx";
+import OfficeSearchSheet from "./OfficeSearchSheet.jsx";
 
 const EMPTY_FIELDS = {
   pincode: "",
@@ -28,81 +27,73 @@ const HEADER_COPY = {
   address: { title: "Add your office address", subtitle: "To verify your employment details" },
 };
 
-// Replicates the attached Figma screens: Career Info's own first screen
-// (company name / designation / work email / years of experience) submits
-// straight into the office-address screen, auto-fetching against the
-// company name just entered — matching "on submit of this page show office
-// address page wherein we show office address based on the google API
-// fetch" (Rashi, 2026-08). The office-address screen itself keeps the
-// selectable address list -> "Add a Different Address" free-type escape
-// hatch, plus the map-assisted pin-confirm step. Every pre-filled field
-// stays editable (PRD cross-cutting rule: auto-fill is a starting point,
-// never a locked value) — confidence score, FiltersApplied, and
-// ranking_method are deliberately NOT shown here; that's Dev Mode's job.
-export default function UserModeView({ searchState, dataSource, liveApiConfigured }) {
-  const { response, loading, error, runSearch } = searchState;
+// Replicates the attached Figma screens and Rashi's 2026-08 flow correction:
+// Career Info's Company Details screen submits straight into a full-page
+// search sheet (office name pre-filled, "like Google Maps' search bar but
+// without the map view" — no Maps JS/Autocomplete key set up yet, so
+// suggestions are mocked against the fixture set, see OfficeSearchSheet.jsx
+// and backend GET /suggest). Selecting a specific office runs the rules
+// script against its real (mock/live) data; selecting a general area only
+// fills Area/Locality — Office Floor/Tower and Office Block/Building Name
+// stay blank for manual entry, same as any other thin-data result (the
+// sparse-data rule already does this, unchanged). Every pre-filled field
+// stays editable (PRD cross-cutting rule) — confidence score,
+// FiltersApplied, and ranking_method are deliberately NOT shown here;
+// that's Dev Mode's job.
+export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [step, setStep] = useState("company"); // "company" | "address"
   const [officeName, setOfficeName] = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
+  const [hasResolved, setHasResolved] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [showManual, setShowManual] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [sparseNotice, setSparseNotice] = useState(false);
-  const [showMapSheet, setShowMapSheet] = useState(false);
 
   const isBlocked = dataSource === "live" && !liveApiConfigured;
-
-  const runOfficeSearch = async (name) => {
-    if (!name.trim() || isBlocked) return;
-    setHasSearched(true);
-    setSelectedId(null);
-    setShowManual(false);
-    setConfirmed(false);
-    setSparseNotice(false);
-    setFields(EMPTY_FIELDS);
-    await runSearch({ officeName: name });
-  };
 
   const handleCompanyDetailsContinue = ({ companyName }) => {
     setOfficeName(companyName);
     setStep("address");
-    runOfficeSearch(companyName);
+    setHasResolved(false);
+    setShowManual(false);
+    setConfirmed(false);
+    setFields(EMPTY_FIELDS);
+    if (!isBlocked) setShowSearchSheet(true);
   };
 
   const handleBackToCompanyDetails = () => {
     setStep("company");
-    setHasSearched(false);
-    setSelectedId(null);
+    setShowSearchSheet(false);
+    setHasResolved(false);
     setShowManual(false);
     setConfirmed(false);
     setSparseNotice(false);
     setFields(EMPTY_FIELDS);
   };
 
-  const applyResult = (result) => {
+  const handleSheetResolve = (result) => {
+    setShowSearchSheet(false);
+    setConfirmed(false);
+    if (!result) {
+      // No match, or the user chose to skip straight to manual entry -
+      // never a dead end, just an empty editable form (TC-3/TC-4 path).
+      setShowManual(true);
+      setHasResolved(false);
+      setSparseNotice(false);
+      setFields(EMPTY_FIELDS);
+      return;
+    }
+    setOfficeName(result.name || officeName);
     setFields(fieldsFromResult(result));
     setSparseNotice(Boolean(result.sparseData));
-  };
-
-  const handleSelect = (result) => {
-    setSelectedId(result.place_id);
+    setHasResolved(true);
     setShowManual(false);
-    setConfirmed(false);
-    applyResult(result);
   };
 
   const handleManualStart = () => {
     setShowManual(true);
-    setSelectedId(null);
-    setConfirmed(false);
-    setSparseNotice(false);
-    setFields(EMPTY_FIELDS);
-  };
-
-  const handleBackToResults = () => {
-    setShowManual(false);
-    setSelectedId(null);
+    setHasResolved(false);
     setConfirmed(false);
     setSparseNotice(false);
     setFields(EMPTY_FIELDS);
@@ -112,21 +103,7 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
     setFields((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleMapConfirm = (result) => {
-    setShowMapSheet(false);
-    if (!result) return;
-    setSelectedId(result.place_id);
-    setShowManual(false);
-    setConfirmed(false);
-    applyResult(result);
-  };
-
-  // TC-4 (can't be made compliant) routes to the same empty-state / manual-
-  // entry UX as TC-3 (no match) -- filtering it out here is what unifies them,
-  // no special-casing needed.
-  const results = (response?.results || []).filter((r) => !r.requiresManualEntry);
-  const showResultsArea = step === "address" && hasSearched && !isBlocked && !loading;
-  const showEditor = Boolean(selectedId) || showManual;
+  const showEditor = hasResolved || showManual;
   const header = HEADER_COPY[step];
 
   return (
@@ -185,37 +162,16 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
               </div>
             )}
 
-            {error && !isBlocked && <div className="notice notice-error">{error}</div>}
-
-            {loading && <p className="muted">Fetching office address for &ldquo;{officeName}&rdquo;…</p>}
-
-            {showResultsArea && !showEditor && (
-              <>
-                <div className="info-banner">
-                  <span aria-hidden="true">ⓘ</span> This information is collected from Google Places.
-                </div>
-
-                {results.length > 0 ? (
-                  <div className="address-list">
-                    {results.map((r) => (
-                      <AddressCard
-                        key={r.place_id}
-                        result={r}
-                        selected={selectedId === r.place_id}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <p>No matching office address found for &ldquo;{officeName}&rdquo;.</p>
-                  </div>
-                )}
-
-                <button type="button" className="link-btn add-different" onClick={handleManualStart}>
-                  + Add a Different Address
+            {!isBlocked && !showEditor && (
+              <div className="empty-state">
+                <p>Looking for the office address for &ldquo;{officeName}&rdquo;.</p>
+                <button type="button" className="primary-btn" onClick={() => setShowSearchSheet(true)}>
+                  Search location
                 </button>
-              </>
+                <button type="button" className="link-btn add-different" onClick={handleManualStart}>
+                  + Enter address manually
+                </button>
+              </div>
             )}
 
             {showEditor && (
@@ -228,14 +184,14 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
                     Office name
                     <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
                   </label>
-                  <button type="button" className="secondary-btn" onClick={() => setShowMapSheet(true)}>
-                    Search on map
+                  <button type="button" className="secondary-btn" onClick={() => setShowSearchSheet(true)}>
+                    Change location
                   </button>
                 </div>
 
                 {sparseNotice && (
                   <div className="notice notice-blocked">
-                    We could only find an approximate area for this office — please fill in Office Floor/Tower and
+                    We could only find the general area for this office — please fill in Office Floor/Tower and
                     Office Block/Building Name yourself below.
                   </div>
                 )}
@@ -285,9 +241,6 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
                   <button type="button" className="primary-btn" onClick={() => setConfirmed(true)}>
                     Confirm and Continue
                   </button>
-                  <button type="button" className="link-btn" onClick={handleBackToResults}>
-                    Back to search results
-                  </button>
                 </div>
                 {confirmed && (
                   <p className="confirmed-note">✓ Address confirmed (test harness — no further step).</p>
@@ -298,12 +251,12 @@ export default function UserModeView({ searchState, dataSource, liveApiConfigure
         )}
       </div>
 
-      {showMapSheet && (
-        <OfficeMapSheet
+      {showSearchSheet && (
+        <OfficeSearchSheet
           officeName={officeName}
-          candidates={response?.results || []}
-          onConfirm={handleMapConfirm}
-          onClose={() => setShowMapSheet(false)}
+          dataSource={dataSource}
+          onResolve={handleSheetResolve}
+          onClose={() => setShowSearchSheet(false)}
         />
       )}
     </div>

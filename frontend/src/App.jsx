@@ -13,7 +13,7 @@ function AppShell() {
       <TopBar />
       <main className="app-main">
         {mode === "user" ? (
-          <UserModeView searchState={searchState} dataSource={dataSource} liveApiConfigured={liveApiConfigured} />
+          <UserModeView dataSource={dataSource} liveApiConfigured={liveApiConfigured} />
         ) : (
           <DeveloperModeView searchState={searchState} dataSource={dataSource} liveApiConfigured={liveApiConfigured} />
         )}

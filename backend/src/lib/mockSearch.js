@@ -30,6 +30,32 @@ export function listScenarios() {
   }));
 }
 
+// Mocks Google Places Autocomplete for the User Mode search sheet — Rashi
+// doesn't have a key/setup for that API yet (2026-08 flow-correction note,
+// CLAUDE.md 4.0), so this scans the same fixture set instead of calling out.
+// Only companies, area entries, and scenarios explicitly flagged
+// `userFacing` are suggestible — the rest (TC-3/TC-4/TC-11/... edge cases)
+// stay Dev-Mode-only, reached via the named-scenario picker, not by someone
+// typing a real-looking office name.
+const SUGGESTIBLE_KINDS = new Set(["company", "area"]);
+
+export function listSuggestions(query) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return [];
+
+  const suggestible = fixtures.entries.filter((e) => SUGGESTIBLE_KINDS.has(e.kind) || e.userFacing);
+  const matches = suggestible.filter((e) => e.names.some((n) => n.toLowerCase().includes(q)));
+
+  return matches.map((e) => ({
+    key: e.key,
+    // Always the real name (e.names[0]), never e.label — label is Dev Mode's
+    // own scenario-description text (e.g. "Multiple branches — ordered
+    // closest to farthest"), not something a real user should see here.
+    label: e.names[0],
+    kind: e.kind === "area" ? "area" : "office",
+  }));
+}
+
 function resolveEntry(entryKey) {
   const entry = entryByKey.get(entryKey);
   if (!entry) return null;
