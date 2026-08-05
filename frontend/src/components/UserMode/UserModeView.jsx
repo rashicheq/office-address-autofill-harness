@@ -84,7 +84,10 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
       setFields(EMPTY_FIELDS);
       return;
     }
-    setOfficeName(result.name || officeName);
+    // Office name is Career Info context (the company you work for) - it
+    // stays fixed regardless of which specific office/area you pick for it,
+    // so re-opening the search sheet always starts back from that same
+    // context rather than drifting toward whatever was picked last.
     setFields(fieldsFromResult(result));
     setSparseNotice(Boolean(result.sparseData));
     setHasResolved(true);

@@ -88,7 +88,10 @@ export default function OfficeSearchSheet({ officeName, dataSource, onResolve, o
             <div className="suggestion-list">
               {query.trim() && suggestions.length === 0 && (
                 <div className="empty-state">
-                  <p>No matching office or area found for &ldquo;{query}&rdquo;.</p>
+                  <p>
+                    We couldn&rsquo;t find &ldquo;{query}&rdquo; on Google Maps. Try searching for your office name or a
+                    nearby area above.
+                  </p>
                   <button type="button" className="link-btn" onClick={handleManualFallback}>
                     Enter address manually instead
                   </button>
