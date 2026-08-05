@@ -1,23 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchSuggestions, search as runSearch } from "../../api/client.js";
 
-// Full-page bottom sheet: a search bar (pre-filled with the office name)
-// with live suggestions mixing specific offices and general areas — "like
-// Google Maps' search bar, but without the map view" (Rashi, 2026-08 flow
-// correction). Backed by a mocked suggestions endpoint (GET /suggest)
-// since there's no Places Autocomplete key set up yet; selecting a
-// suggestion still runs the REAL rules pipeline via the existing scenario
-// lookup on /search, so results are never faked, only the "type ahead"
-// part is mocked. Multi-branch entries (e.g. Vantage Corp) get a second,
-// in-sheet step to pick the specific branch, closest pre-selected by the
-// same ranker already used everywhere else.
-export default function OfficeSearchSheet({ officeName, dataSource, onResolve, onClose }) {
-  const [query, setQuery] = useState(officeName || "");
+// Full-page bottom sheet: a search bar (pre-filled with whichever value the
+// caller seeds it with — the office name, or the currently-selected area
+// when reopened via the "Search area" CTA) with live suggestions mixing
+// specific offices and general areas — "like Google Maps' search bar, but
+// without the map view" (Rashi, 2026-08 flow correction). Backed by a
+// mocked suggestions endpoint (GET /suggest) since there's no Places
+// Autocomplete key set up yet; selecting a suggestion still runs the REAL
+// rules pipeline via the existing scenario lookup on /search, so results
+// are never faked, only the "type ahead" part is mocked. Multi-branch
+// entries (e.g. Vantage Corp) get a second, in-sheet step to pick the
+// specific branch, closest pre-selected by the same ranker already used
+// everywhere else.
+export default function OfficeSearchSheet({ initialQuery, dataSource, onResolve, onClose }) {
+  const [query, setQuery] = useState(initialQuery || "");
   const [suggestions, setSuggestions] = useState([]);
   const [subStep, setSubStep] = useState("search"); // "search" | "loading" | "branches"
   const [branches, setBranches] = useState([]);
   const [branchQueryLabel, setBranchQueryLabel] = useState("");
   const debounceRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (subStep !== "search") return;
@@ -37,13 +40,16 @@ export default function OfficeSearchSheet({ officeName, dataSource, onResolve, o
     return () => clearTimeout(debounceRef.current);
   }, [query, subStep]);
 
+  // suggestion.kind / suggestion.label travel back to the caller as `meta`
+  // so it can tell "an area was picked" apart from "an office was picked"
+  // without guessing from the result shape alone.
   const resolveEntry = async (suggestion) => {
     setSubStep("loading");
     try {
       const data = await runSearch({ officeName: suggestion.label, dataSource, scenario: suggestion.key });
       const results = (data.results || []).filter((r) => !r.requiresManualEntry);
       if (results.length <= 1) {
-        onResolve(results[0] || null);
+        onResolve(results[0] || null, { label: suggestion.label, kind: suggestion.kind });
         return;
       }
       setBranches(results);
@@ -55,6 +61,17 @@ export default function OfficeSearchSheet({ officeName, dataSource, onResolve, o
   };
 
   const handleManualFallback = () => onResolve(null);
+
+  // Not on Google Maps under this name — clear the query and hand focus
+  // straight back to the bar so pivoting to an area search feels like a
+  // continuation of the same search, not a dead end.
+  const handleSearchAreaInstead = () => {
+    setQuery("");
+    setSuggestions([]);
+    inputRef.current?.focus();
+  };
+
+  const showEmptyState = subStep === "search" && query.trim() && suggestions.length === 0;
 
   return (
     <div className="map-sheet-overlay" role="dialog" aria-modal="true">
@@ -76,22 +93,30 @@ export default function OfficeSearchSheet({ officeName, dataSource, onResolve, o
 
         {subStep === "search" && (
           <>
-            <div className="map-sheet-landmark-row">
-              <input
-                className="search-input"
-                autoFocus
-                placeholder="Search office name or area"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+            <div className="map-sheet-search-row">
+              <div className="search-bar">
+                <span className="search-bar-icon" aria-hidden="true">
+                  🔍
+                </span>
+                <input
+                  ref={inputRef}
+                  className="search-bar-input"
+                  autoFocus
+                  placeholder="Search office name or area"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              {showEmptyState && (
+                <button type="button" className="search-area-cta" onClick={handleSearchAreaInstead}>
+                  📍 Search area
+                </button>
+              )}
             </div>
             <div className="suggestion-list">
-              {query.trim() && suggestions.length === 0 && (
+              {showEmptyState && (
                 <div className="empty-state">
-                  <p>
-                    We couldn&rsquo;t find &ldquo;{query}&rdquo; on Google Maps. Try searching for your office name or a
-                    nearby area above.
-                  </p>
+                  <p>We couldn&rsquo;t find &ldquo;{query}&rdquo; on Google Maps under that name.</p>
                   <button type="button" className="link-btn" onClick={handleManualFallback}>
                     Enter address manually instead
                   </button>
@@ -115,7 +140,12 @@ export default function OfficeSearchSheet({ officeName, dataSource, onResolve, o
         {subStep === "branches" && (
           <div className="suggestion-list">
             {branches.map((b, i) => (
-              <button key={b.place_id} type="button" className="suggestion-item branch-item" onClick={() => onResolve(b)}>
+              <button
+                key={b.place_id}
+                type="button"
+                className="suggestion-item branch-item"
+                onClick={() => onResolve(b, { label: branchQueryLabel, kind: "office" })}
+              >
                 <span className="suggestion-icon" aria-hidden="true">
                   🏢
                 </span>

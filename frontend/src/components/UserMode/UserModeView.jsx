@@ -43,7 +43,9 @@ const HEADER_COPY = {
 export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [step, setStep] = useState("company"); // "company" | "address"
   const [officeName, setOfficeName] = useState("");
+  const [areaLabel, setAreaLabel] = useState("");
   const [showSearchSheet, setShowSearchSheet] = useState(false);
+  const [sheetSeed, setSheetSeed] = useState("");
   const [hasResolved, setHasResolved] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [showManual, setShowManual] = useState(false);
@@ -52,14 +54,24 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
   const isBlocked = dataSource === "live" && !liveApiConfigured;
 
+  // Office name and area are searched independently — "Change location"
+  // reopens the sheet seeded with the office name, "Search area" reopens it
+  // seeded with whichever area is currently selected, so re-searching one
+  // never clobbers the other (see handleSheetResolve).
+  const openSheetFor = (seed) => {
+    setSheetSeed(seed);
+    setShowSearchSheet(true);
+  };
+
   const handleCompanyDetailsContinue = ({ companyName }) => {
     setOfficeName(companyName);
+    setAreaLabel("");
     setStep("address");
     setHasResolved(false);
     setShowManual(false);
     setConfirmed(false);
     setFields(EMPTY_FIELDS);
-    if (!isBlocked) setShowSearchSheet(true);
+    if (!isBlocked) openSheetFor(companyName);
   };
 
   const handleBackToCompanyDetails = () => {
@@ -69,10 +81,11 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setShowManual(false);
     setConfirmed(false);
     setSparseNotice(false);
+    setAreaLabel("");
     setFields(EMPTY_FIELDS);
   };
 
-  const handleSheetResolve = (result) => {
+  const handleSheetResolve = (result, meta) => {
     setShowSearchSheet(false);
     setConfirmed(false);
     if (!result) {
@@ -81,15 +94,19 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
       setShowManual(true);
       setHasResolved(false);
       setSparseNotice(false);
+      setAreaLabel("");
       setFields(EMPTY_FIELDS);
       return;
     }
     // Office name is Career Info context (the company you work for) - it
     // stays fixed regardless of which specific office/area you pick for it,
     // so re-opening the search sheet always starts back from that same
-    // context rather than drifting toward whatever was picked last.
+    // context rather than drifting toward whatever was picked last. The
+    // area label is separate, distinct state - it only exists when a
+    // locality (not a full office match) was selected.
     setFields(fieldsFromResult(result));
     setSparseNotice(Boolean(result.sparseData));
+    setAreaLabel(result.sparseData ? meta?.label || "" : "");
     setHasResolved(true);
     setShowManual(false);
   };
@@ -99,6 +116,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setHasResolved(false);
     setConfirmed(false);
     setSparseNotice(false);
+    setAreaLabel("");
     setFields(EMPTY_FIELDS);
   };
 
@@ -168,7 +186,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
             {!isBlocked && !showEditor && (
               <div className="empty-state">
                 <p>Looking for the office address for &ldquo;{officeName}&rdquo;.</p>
-                <button type="button" className="primary-btn" onClick={() => setShowSearchSheet(true)}>
+                <button type="button" className="primary-btn" onClick={() => openSheetFor(officeName)}>
                   Search location
                 </button>
                 <button type="button" className="link-btn add-different" onClick={handleManualStart}>
@@ -187,10 +205,22 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                     Office name
                     <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
                   </label>
-                  <button type="button" className="secondary-btn" onClick={() => setShowSearchSheet(true)}>
+                  <button type="button" className="secondary-btn" onClick={() => openSheetFor(officeName)}>
                     Change location
                   </button>
                 </div>
+
+                {sparseNotice && (
+                  <div className="office-name-row">
+                    <label className="field office-name-field">
+                      Area
+                      <input value={areaLabel} onChange={(e) => setAreaLabel(e.target.value)} />
+                    </label>
+                    <button type="button" className="secondary-btn" onClick={() => openSheetFor(areaLabel)}>
+                      Search area
+                    </button>
+                  </div>
+                )}
 
                 {sparseNotice && (
                   <div className="notice notice-blocked">
@@ -256,7 +286,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
       {showSearchSheet && (
         <OfficeSearchSheet
-          officeName={officeName}
+          initialQuery={sheetSeed}
           dataSource={dataSource}
           onResolve={handleSheetResolve}
           onClose={() => setShowSearchSheet(false)}

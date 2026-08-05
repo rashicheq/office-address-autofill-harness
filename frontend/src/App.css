@@ -837,9 +837,63 @@ body {
   font-weight: 700;
 }
 
-.map-sheet-landmark-row {
+.map-sheet-search-row {
   padding: 12px 18px 0;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 11px 16px;
+  background: #f3f4f6;
+  min-width: 0;
+}
+
+.search-bar-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.search-bar-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  color: var(--text-dark);
+}
+
+.search-bar-input:focus {
+  outline: none;
+}
+
+.search-area-cta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--text-dark);
+  flex-shrink: 0;
+}
+
+.search-area-cta:hover {
+  border-color: #9ca3af;
 }
 
 .suggestion-list {

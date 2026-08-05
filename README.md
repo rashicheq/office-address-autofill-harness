@@ -33,9 +33,11 @@ User Mode opens on **Company Details** (name/designation/email/experience). Subm
 - **Office** suggestions (a real company/place) run the full rules script — every field populates.
 - **Area** suggestions (a bare locality, e.g. "Koramangala") only populate Area/Locality + City/District/State/Pincode — Office Floor/Tower and Office Block/Building Name stay blank for manual entry, since that's genuinely all a locality-level match gives you. This is the same sparse-data rule as any other thin result, not a special case.
 - Multiple branches (e.g. "Vantage Corp") show a second in-sheet step to pick the specific one, closest pre-selected.
-- No match → "Enter address manually instead" — never a dead end.
+- No match → a **"📍 Search area" CTA sits right next to the search bar** (not a buried message) so you can pivot straight into an area search; "Enter address manually instead" stays as a secondary fallback — never a dead end.
 
-No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 ("Search-sheet flow correction") for what wiring in the real ones later would need.
+Office name and area are independent once resolved: the confirm screen shows **two rows** — "Office name" (always) and "Area" (only when a locality/sparse match was picked) — each with its own re-search button that reopens the sheet seeded with that row's own value, so re-searching one never overwrites the other.
+
+No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 ("Office name/area independence + search-bar polish") for what wiring in the real ones later would need.
 
 ## Structure
 
