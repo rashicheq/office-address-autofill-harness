@@ -10,9 +10,12 @@ import { fetchSuggestions, search as runSearch } from "../../api/client.js";
 // Autocomplete key set up yet; selecting a suggestion still runs the REAL
 // rules pipeline via the existing scenario lookup on /search, so results
 // are never faked, only the "type ahead" part is mocked. Multi-branch
-// entries (e.g. Vantage Corp) get a second, in-sheet step to pick the
-// specific branch, closest pre-selected by the same ranker already used
-// everywhere else.
+// companies (e.g. Vantage Corp, TC-1) show every branch as its own row
+// directly in this same dropdown, closest first via the same ranker used
+// everywhere else — the user picks their specific office in one step. The
+// "branches" subStep below is a defensive fallback for any other scenario
+// that somehow returns multiple candidates without the dropdown having
+// already disambiguated them via placeId.
 export default function OfficeSearchSheet({ initialQuery, dataSource, onResolve, onClose }) {
   const [query, setQuery] = useState(initialQuery || "");
   const [suggestions, setSuggestions] = useState([]);
@@ -48,10 +51,20 @@ export default function OfficeSearchSheet({ initialQuery, dataSource, onResolve,
     try {
       const data = await runSearch({ officeName: suggestion.label, dataSource, scenario: suggestion.key });
       const results = (data.results || []).filter((r) => !r.requiresManualEntry);
+      if (suggestion.placeId) {
+        // The dropdown already showed every branch as its own row (TC-1) -
+        // the user picked this exact one, so resolve straight to it instead
+        // of showing a second picker screen for a choice already made.
+        const picked = results.find((r) => r.place_id === suggestion.placeId);
+        onResolve(picked || results[0] || null, { label: suggestion.label, kind: suggestion.kind });
+        return;
+      }
       if (results.length <= 1) {
         onResolve(results[0] || null, { label: suggestion.label, kind: suggestion.kind });
         return;
       }
+      // Defensive fallback for any other scenario that returns multiple
+      // candidates without the dropdown having already disambiguated them.
       setBranches(results);
       setBranchQueryLabel(suggestion.label);
       setSubStep("branches");
@@ -123,12 +136,16 @@ export default function OfficeSearchSheet({ initialQuery, dataSource, onResolve,
                 </div>
               )}
               {suggestions.map((s) => (
-                <button key={s.key} type="button" className="suggestion-item" onClick={() => resolveEntry(s)}>
+                <button key={s.placeId || s.key} type="button" className="suggestion-item" onClick={() => resolveEntry(s)}>
                   <span className="suggestion-icon" aria-hidden="true">
                     {s.kind === "area" ? "📍" : "🏢"}
                   </span>
                   <span className="suggestion-label">{s.label}</span>
-                  <span className={s.kind === "area" ? "chip" : "chip chip-filter"}>{s.kind === "area" ? "Area" : "Office"}</span>
+                  {s.closest ? (
+                    <span className="chip chip-filter">Closest</span>
+                  ) : (
+                    <span className={s.kind === "area" ? "chip" : "chip chip-filter"}>{s.kind === "area" ? "Area" : "Office"}</span>
+                  )}
                 </button>
               ))}
             </div>

@@ -46,14 +46,34 @@ export function listSuggestions(query) {
   const suggestible = fixtures.entries.filter((e) => SUGGESTIBLE_KINDS.has(e.kind) || e.userFacing);
   const matches = suggestible.filter((e) => e.names.some((n) => n.toLowerCase().includes(q)));
 
-  return matches.map((e) => ({
-    key: e.key,
-    // Always the real name (e.names[0]), never e.label — label is Dev Mode's
-    // own scenario-description text (e.g. "Multiple branches — ordered
-    // closest to farthest"), not something a real user should see here.
-    label: e.names[0],
-    kind: e.kind === "area" ? "area" : "office",
-  }));
+  return matches.flatMap((e) => {
+    const kind = e.kind === "area" ? "area" : "office";
+
+    // TC-1: a company with multiple branches shows every branch as its own
+    // row, closest first (same ranker /search uses) — the user picks the
+    // specific office they work at right here, rather than a single
+    // collapsed row hiding a second picker screen behind it.
+    if (e.candidates.length > 1) {
+      const { candidates: ranked } = sortOfficeCandidates(CONFIG.DEFAULT_CURRENT_LOCATION, e.candidates);
+      return ranked.map((c, i) => ({
+        key: e.key,
+        placeId: c.place_id,
+        label: c.name,
+        kind,
+        closest: i === 0,
+      }));
+    }
+
+    return [{
+      key: e.key,
+      // Always the real name (e.names[0]), never e.label — label is Dev
+      // Mode's own scenario-description text (e.g. "Multiple branches —
+      // ordered closest to farthest"), not something a real user should
+      // see here.
+      label: e.names[0],
+      kind,
+    }];
+  });
 }
 
 function resolveEntry(entryKey) {

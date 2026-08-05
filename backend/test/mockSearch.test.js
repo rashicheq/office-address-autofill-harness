@@ -16,12 +16,21 @@ test("listSuggestions matches an area entry (kind: area)", () => {
   assert.equal(results[0].kind, "area");
 });
 
-test("listSuggestions surfaces the multi-branch demo since it's flagged userFacing", () => {
+test("listSuggestions expands a multi-branch company into one row per branch, closest first (TC-1)", () => {
   const results = listSuggestions("vantage");
-  assert.equal(results.length, 1);
-  assert.equal(results[0].key, "tc1-vantage-multi-branch");
-  // Real name, not the Dev-Mode-oriented internal label.
-  assert.equal(results[0].label, "Vantage Corp");
+  assert.equal(results.length, 4);
+  for (const r of results) {
+    assert.equal(r.key, "tc1-vantage-multi-branch");
+    assert.equal(r.kind, "office");
+    assert.ok(r.placeId, "each branch row carries its own placeId");
+    // Real branch name, not the Dev-Mode-oriented internal label.
+    assert.match(r.label, /^Vantage Corp \(.+ Branch\)$/);
+  }
+  const placeIds = results.map((r) => r.placeId);
+  assert.equal(new Set(placeIds).size, 4, "every branch row has a distinct placeId");
+  assert.equal(results[0].closest, true);
+  assert.equal(results[0].placeId, "MOCK-vantage-koramangala");
+  assert.ok(results.slice(1).every((r) => !r.closest));
 });
 
 test("listSuggestions excludes internal edge-case scenarios not flagged userFacing", () => {
