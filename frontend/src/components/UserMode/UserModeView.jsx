@@ -54,10 +54,12 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
   const isBlocked = dataSource === "live" && !liveApiConfigured;
 
-  // Office name and area are searched independently — "Change location"
-  // reopens the sheet seeded with the office name, "Search area" reopens it
-  // seeded with whichever area is currently selected, so re-searching one
-  // never clobbers the other (see handleSheetResolve).
+  // Office name is a plain editable field once resolved - no re-search
+  // action of its own. Area still gets a "Search area" button that reopens
+  // the sheet seeded with whichever area is currently selected, and the
+  // very first search (before anything is resolved) seeds from the office
+  // name (see handleSheetResolve for how area vs. office picks are told
+  // apart).
   const openSheetFor = (seed) => {
     setSheetSeed(seed);
     setShowSearchSheet(true);
@@ -200,15 +202,10 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                 <h3>{showManual ? "Enter your office address" : "Confirm your address"}</h3>
                 <p className="editor-hint">Every field stays editable — review before continuing.</p>
 
-                <div className="office-name-row">
-                  <label className="field office-name-field">
-                    Office name
-                    <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
-                  </label>
-                  <button type="button" className="secondary-btn" onClick={() => openSheetFor(officeName)}>
-                    Change location
-                  </button>
-                </div>
+                <label className="field">
+                  Office name
+                  <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
+                </label>
 
                 {sparseNotice && (
                   <div className="office-name-row">
