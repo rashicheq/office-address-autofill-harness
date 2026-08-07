@@ -30,20 +30,22 @@ Developer Mode has a **Batch search** section: paste one office name per line (e
 
 User Mode opens on **Company Details** (name/designation/email/experience). Submitting it opens a full-page bottom sheet immediately — a search bar pre-filled with the company name ("like Google Maps' search bar, but without the map view"), with live suggestions as you type. This mocks Google Places Autocomplete (no key/setup for that API either) via `GET /suggest`, scanning the fixture set:
 
-- **Office** suggestions (a real company/place) run the full rules script — every field populates.
-- **Area** suggestions (a bare locality, e.g. "Koramangala") only populate Area/Locality + City/District/State/Pincode — Office Floor/Tower and Office Block/Building Name stay blank for manual entry, since that's genuinely all a locality-level match gives you. This is the same sparse-data rule as any other thin result, not a special case.
+- **Office** suggestions (a real company/place) resolve to that candidate's full data.
+- **Area** suggestions (a bare locality, e.g. "Koramangala") resolve the same way, just with far fewer raw components to work with — see the field model below.
 - Multiple branches (e.g. "Vantage Corp") show **every branch as its own row directly in the dropdown**, closest first — the user picks the specific office they work at in one step, no second picker screen.
 - No match → a **"📍 Search area" CTA sits right next to the search bar** (not a buried message) so you can pivot straight into an area search; "Enter address manually instead" stays as a secondary fallback — never a dead end.
 
-Office name and area are independent once resolved: the confirm screen shows **two rows** — "Office name" (a plain editable field, no re-search action of its own) and "Area" (only when a locality/sparse match was picked, with its own "Search area" button that reopens the sheet seeded with the area's current value).
+Office name and area are independent once resolved: the confirm screen shows **two rows** — "Office name" (a plain editable field, no re-search action of its own) and "Area" (only when a locality match was picked, with its own "Search area" button that reopens the sheet seeded with the area's current value).
 
-No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 ("Office name/area independence + search-bar polish") for what wiring in the real ones later would need.
+**Address fields (2026-08 pivot):** the confirm screen no longer uses the backend rules engine at all. `frontend/src/lib/addressLineConfig.js` builds **Address Line 2** (subpremise + premise + street_number) and **Address Line 3** (route) directly from the raw Google-typed components — no abbreviation, no dropping, no length budget. **Address Line 1 is never auto-filled, for any result** — the user always types it (floor number, building/tower name), and "Confirm and Continue" is disabled until it has text. City/District, State, and Pincode are still simple passthroughs, unchanged. This is independent, user-owned state exactly like Office name — re-searching the office or area never clears whatever's already typed into Line 1.
+
+No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 for what wiring in the real ones later would need.
 
 ## Structure
 
 - `backend/` — Express API.
   - `src/lib/ranker.js` — `sort_office_addresses.py` ported to JS (haversine distance, fallback_relevance, stable tie-break).
-  - `src/lib/formattingPipeline.js` — a **harness-local reimplementation** of the PRD Section 5 formatting rules, outputting the Figma's structured fields (Office Floor/Tower, Office Block/Building Name, Area/Locality, Pincode, City/District, State — see CLAUDE.md's 2026-08 "Structured-field revision" note) plus the 50%-missing-components sparse-data rule. `address_filter_pipeline_v2.py` is not in this repo, so this is explicitly flagged as a stand-in, not the canonical script (see the file header and the `pipelineImplementation` field on every response).
+  - `src/lib/formattingPipeline.js` — a **harness-local reimplementation** of the PRD Section 5 formatting rules (tiers, abbreviation, drop-to-fit, the sparse-data rule). `address_filter_pipeline_v2.py` is not in this repo, so this is explicitly flagged as a stand-in, not the canonical script (see the file header and the `pipelineImplementation` field on every response). **Dev Mode only as of the 2026-08 field-model pivot** — User Mode's confirm screen no longer consumes this pipeline's output; see `frontend/src/lib/addressLineConfig.js` below and CLAUDE.md's "User Mode field-model pivot" note.
   - `src/lib/confidence.js` — the confidence scorer, weights approved by Rashi 2026-07-19 (see CLAUDE.md Section 4.0).
   - `src/lib/fuzzyMatch.js` — office-name matching against the mock fixture set.
   - `src/lib/mockSearch.js` — the Mock Data path: fixture lookup -> formatting pipeline -> ranker -> confidence.
@@ -52,10 +54,12 @@ No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made a
   - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py`, named edge-case scenarios (including `sparse-components`, the 50%-missing demo), and `kind: "area"` entries used by the search-sheet's area suggestions.
   - `listSuggestions` (in `mockSearch.js`) — backs `GET /suggest`, the mocked autocomplete for the search sheet.
 - `frontend/` — React app (Vite). Single codebase, mode/data-source toggles rather than separate apps.
-  - `components/DeveloperMode/ResultCard.jsx` — the structured-field result display, shared by the single-search view and the batch runner.
+  - `src/lib/addressLineConfig.js` — the **2026-08 field-model pivot**: builds Address Line 2/3 directly from a result's raw `addressComponents`, no rules engine involved. This is what User Mode's confirm screen actually uses now.
+  - `components/DeveloperMode/ResultCard.jsx` — the structured-field result display (old rules-engine output), shared by the single-search view and the batch runner. Dev Mode only.
   - `components/DeveloperMode/BatchRunner.jsx` — the batch-search UI.
   - `components/UserMode/CompanyDetailsView.jsx` — the Career Info intake screen (Company Name feeds the search).
   - `components/UserMode/OfficeSearchSheet.jsx` — the search-bar bottom sheet (office/area suggestions + multi-branch picker).
+  - `components/UserMode/UserModeView.jsx` — the confirm screen: Office name, Area (when applicable), Address Line 1/2/3, City/District, State, Pincode.
 
 ## Tests
 

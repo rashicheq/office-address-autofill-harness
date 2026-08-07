@@ -251,6 +251,11 @@ export async function runLiveSearch({ officeName, currentLocation, simulateGeoco
       location: candidate.location,
       distance_km: candidate.distance_km,
       rawFormattedAddress: candidate.formattedAddress,
+      // Raw, untouched Google-typed components - User Mode's confirm screen
+      // (2026-08 "frontend config" pivot) builds Address Line 2/3 from this
+      // directly instead of the tier/drop/shorten fields below, which now
+      // exist for Dev Mode's own diagnostic view only.
+      addressComponents: candidate.addressComponents,
       officeFloorTower: formatted.officeFloorTower,
       officeBlockBuilding: formatted.officeBlockBuilding,
       areaLocality: formatted.areaLocality,

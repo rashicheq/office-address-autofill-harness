@@ -379,6 +379,16 @@ body {
   color: #9ca3af;
 }
 
+.field-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin: -8px 0 14px;
+}
+
+.field-hint.field-hint-warn {
+  color: var(--warn);
+}
+
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -1,56 +1,52 @@
 import { useState } from "react";
 import CompanyDetailsView from "./CompanyDetailsView.jsx";
 import OfficeSearchSheet from "./OfficeSearchSheet.jsx";
+import { buildAddressLines } from "../../lib/addressLineConfig.js";
 
 const EMPTY_FIELDS = {
-  pincode: "",
-  officeFloorTower: "",
-  officeBlockBuilding: "",
-  areaLocality: "",
+  addressLine2: "",
+  addressLine3: "",
   cityDistrict: "",
   state: "",
+  pincode: "",
 };
-
-function fieldsFromResult(result) {
-  return {
-    pincode: result.pincode || "",
-    officeFloorTower: result.officeFloorTower || "",
-    officeBlockBuilding: result.officeBlockBuilding || "",
-    areaLocality: result.areaLocality || "",
-    cityDistrict: result.cityDistrict || "",
-    state: result.state || "",
-  };
-}
 
 const HEADER_COPY = {
   company: { title: "Add your company details", subtitle: "To know your professional side a little better" },
   address: { title: "Add your office address", subtitle: "To verify your employment details" },
 };
 
-// Replicates the attached Figma screens and Rashi's 2026-08 flow correction:
+// Replicates the attached Figma screens and Rashi's 2026-08 flow corrections.
 // Career Info's Company Details screen submits straight into a full-page
 // search sheet (office name pre-filled, "like Google Maps' search bar but
 // without the map view" — no Maps JS/Autocomplete key set up yet, so
 // suggestions are mocked against the fixture set, see OfficeSearchSheet.jsx
-// and backend GET /suggest). Selecting a specific office runs the rules
-// script against its real (mock/live) data; selecting a general area only
-// fills Area/Locality — Office Floor/Tower and Office Block/Building Name
-// stay blank for manual entry, same as any other thin-data result (the
-// sparse-data rule already does this, unchanged). Every pre-filled field
-// stays editable (PRD cross-cutting rule) — confidence score,
-// FiltersApplied, and ranking_method are deliberately NOT shown here;
-// that's Dev Mode's job.
+// and backend GET /suggest).
+//
+// Address fields (2026-08 "frontend config" pivot): the backend's
+// tier/drop/shorten rules engine no longer drives what this screen shows —
+// Address Line 2/3 are built directly from the raw Google-typed components
+// via lib/addressLineConfig.js (subpremise+premise+street_number → Line 2,
+// route → Line 3). Address Line 1 is NEVER auto-filled, by design, for any
+// result — found, not-found, or multi-branch — the user always types it
+// (floor/building detail), and it stays independent of whichever
+// office/area is picked, same as officeName. City/District, State, and
+// Pincode are still simple direct passthroughs of locality/administrative_
+// area_level_1/postal_code, unchanged. Confidence score, FiltersApplied,
+// and the old structured fields still exist and still compute — that's
+// Dev Mode's diagnostic view now, not what ships here.
 export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [step, setStep] = useState("company"); // "company" | "address"
   const [officeName, setOfficeName] = useState("");
   const [areaLabel, setAreaLabel] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
   const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [sheetSeed, setSheetSeed] = useState("");
   const [hasResolved, setHasResolved] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [showManual, setShowManual] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
-  const [sparseNotice, setSparseNotice] = useState(false);
+  const [isAreaPick, setIsAreaPick] = useState(false);
 
   const isBlocked = dataSource === "live" && !liveApiConfigured;
 
@@ -68,6 +64,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
   const handleCompanyDetailsContinue = ({ companyName }) => {
     setOfficeName(companyName);
     setAreaLabel("");
+    setAddressLine1("");
     setStep("address");
     setHasResolved(false);
     setShowManual(false);
@@ -82,8 +79,9 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setHasResolved(false);
     setShowManual(false);
     setConfirmed(false);
-    setSparseNotice(false);
+    setIsAreaPick(false);
     setAreaLabel("");
+    setAddressLine1("");
     setFields(EMPTY_FIELDS);
   };
 
@@ -93,22 +91,25 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     if (!result) {
       // No match, or the user chose to skip straight to manual entry -
       // never a dead end, just an empty editable form (TC-3/TC-4 path).
+      // Address Line 1 is left untouched here too - if the user had already
+      // typed something before pivoting to manual, there's no reason to
+      // throw it away.
       setShowManual(true);
       setHasResolved(false);
-      setSparseNotice(false);
+      setIsAreaPick(false);
       setAreaLabel("");
       setFields(EMPTY_FIELDS);
       return;
     }
     // Office name is Career Info context (the company you work for) - it
-    // stays fixed regardless of which specific office/area you pick for it,
-    // so re-opening the search sheet always starts back from that same
-    // context rather than drifting toward whatever was picked last. The
-    // area label is separate, distinct state - it only exists when a
-    // locality (not a full office match) was selected.
-    setFields(fieldsFromResult(result));
-    setSparseNotice(Boolean(result.sparseData));
-    setAreaLabel(result.sparseData ? meta?.label || "" : "");
+    // stays fixed regardless of which specific office/area you pick for it.
+    // Address Line 1 is the same kind of independent, user-owned state - a
+    // location pick only ever touches Line 2/3 + city/state/pincode, never
+    // Line 1, so re-searching never throws away floor/building detail the
+    // user already typed.
+    setFields(buildAddressLines(result.addressComponents));
+    setIsAreaPick(meta?.kind === "area");
+    setAreaLabel(meta?.kind === "area" ? meta?.label || "" : "");
     setHasResolved(true);
     setShowManual(false);
   };
@@ -117,7 +118,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setShowManual(true);
     setHasResolved(false);
     setConfirmed(false);
-    setSparseNotice(false);
+    setIsAreaPick(false);
     setAreaLabel("");
     setFields(EMPTY_FIELDS);
   };
@@ -128,6 +129,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
   const showEditor = hasResolved || showManual;
   const header = HEADER_COPY[step];
+  const canConfirm = addressLine1.trim().length > 0;
 
   return (
     <div className="user-mode">
@@ -207,7 +209,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                   <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
                 </label>
 
-                {sparseNotice && (
+                {isAreaPick && (
                   <div className="office-name-row">
                     <label className="field office-name-field">
                       Area
@@ -219,12 +221,33 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                   </div>
                 )}
 
-                {sparseNotice && (
+                {isAreaPick && (
                   <div className="notice notice-blocked">
-                    We could only find the general area for this office — please fill in Office Floor/Tower and
-                    Office Block/Building Name yourself below.
+                    We could only find the general area for this office — Address Line 2 and 3 may be
+                    incomplete. Add the exact floor, building, or tower in Address Line 1 below.
                   </div>
                 )}
+
+                <label className="field">
+                  Address Line 1
+                  <input
+                    value={addressLine1}
+                    onChange={(e) => setAddressLine1(e.target.value)}
+                    placeholder="e.g. 2nd Floor, Tower B"
+                  />
+                </label>
+                <p className="field-hint">
+                  Always yours to fill in — add your floor number, building, or tower name here.
+                </p>
+
+                <label className="field">
+                  Address Line 2
+                  <input value={fields.addressLine2} onChange={(e) => updateField("addressLine2", e.target.value)} />
+                </label>
+                <label className="field">
+                  Address Line 3
+                  <input value={fields.addressLine3} onChange={(e) => updateField("addressLine3", e.target.value)} />
+                </label>
 
                 <label className="field">
                   Office Pin Code
@@ -236,25 +259,6 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                     <span aria-hidden="true">✓</span> {fields.cityDistrict}, {fields.state}
                   </p>
                 )}
-
-                <label className="field">
-                  Office Floor / Tower
-                  <input
-                    value={fields.officeFloorTower}
-                    onChange={(e) => updateField("officeFloorTower", e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  Office Block / Building Name
-                  <input
-                    value={fields.officeBlockBuilding}
-                    onChange={(e) => updateField("officeBlockBuilding", e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  Area/Locality
-                  <input value={fields.areaLocality} onChange={(e) => updateField("areaLocality", e.target.value)} />
-                </label>
 
                 <div className="field-row">
                   <label className="field">
@@ -268,10 +272,11 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                 </div>
 
                 <div className="editor-actions">
-                  <button type="button" className="primary-btn" onClick={() => setConfirmed(true)}>
+                  <button type="button" className="primary-btn" disabled={!canConfirm} onClick={() => setConfirmed(true)}>
                     Confirm and Continue
                   </button>
                 </div>
+                {!canConfirm && <p className="field-hint field-hint-warn">Add Address Line 1 to continue.</p>}
                 {confirmed && (
                   <p className="confirmed-note">✓ Address confirmed (test harness — no further step).</p>
                 )}
