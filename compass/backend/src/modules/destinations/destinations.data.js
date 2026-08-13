@@ -1,0 +1,118 @@
+// Curated launch-market destination set (PRD §4.2 FR-2.3 / OQ-2 resolution).
+// Small on purpose — this is the ops-curated seed, not a scale answer.
+// `packingHint` and `bestWindowNote` are static seed copy for Phase 1, not
+// output of the deal optimizer or a legal/climate engine (those are Phase 2/3).
+export const DESTINATIONS = [
+  {
+    id: "gili-air",
+    name: "Gili Air",
+    country: "Indonesia",
+    vibeId: "beach",
+    tagline: "Turquoise water, no cars on the island",
+    bestWindowNote: "Flexible ±3 days · shoulder season avoids the July–August crowd",
+    packingHint: "Reef-safe sunscreen, snorkel gear",
+  },
+  {
+    id: "havelock-island",
+    name: "Havelock Island",
+    country: "India",
+    vibeId: "beach",
+    tagline: "Radhanagar's white sand, quiet dive spots",
+    bestWindowNote: "Best Nov–Feb · seas are rough in the monsoon months",
+    packingHint: "Reef-safe sunscreen, water shoes",
+  },
+  {
+    id: "varkala",
+    name: "Varkala",
+    country: "India",
+    vibeId: "beach",
+    tagline: "Cliffside cafes over the Arabian Sea",
+    bestWindowNote: "Flexible ±4 days · avoid the June–September monsoon",
+    packingHint: "Light layers, reef-safe sunscreen",
+  },
+  {
+    id: "manali",
+    name: "Manali",
+    country: "India",
+    vibeId: "snow",
+    tagline: "Bonfire nights, pine-lined valleys",
+    bestWindowNote: "Fixed dates recommended · Dec–Jan for first snowfall",
+    packingHint: "Thermal layers, waterproof boots",
+  },
+  {
+    id: "gulmarg",
+    name: "Gulmarg",
+    country: "India",
+    vibeId: "snow",
+    tagline: "Gondola rides over Kashmir's meadows",
+    bestWindowNote: "Fixed dates recommended · Jan–Feb for deepest snow",
+    packingHint: "Thermal layers, snow boots, gloves",
+  },
+  {
+    id: "auli",
+    name: "Auli",
+    country: "India",
+    vibeId: "snow",
+    tagline: "Himalayan views from a ski slope",
+    bestWindowNote: "Fixed dates recommended · Dec–Feb",
+    packingHint: "Thermal layers, waterproof boots",
+  },
+  {
+    id: "tokyo",
+    name: "Tokyo",
+    country: "Japan",
+    vibeId: "city",
+    tagline: "Neon alleys, markets before sunrise",
+    bestWindowNote: "Fixed dates · check public holidays for crowding",
+    packingHint: "Portable Wi-Fi, comfortable walking shoes",
+  },
+  {
+    id: "singapore",
+    name: "Singapore",
+    country: "Singapore",
+    vibeId: "city",
+    tagline: "Hawker centres and a skyline that never sits still",
+    bestWindowNote: "Fixed dates · year-round, avoid school holiday weeks",
+    packingHint: "Light breathable layers, umbrella",
+  },
+  {
+    id: "dubai",
+    name: "Dubai",
+    country: "United Arab Emirates",
+    vibeId: "city",
+    tagline: "Desert meets skyline, old souks meet new towers",
+    bestWindowNote: "Fixed dates · Nov–Mar avoids peak heat",
+    packingHint: "Light layers, one modest-dress outfit for cultural sites",
+  },
+  {
+    id: "mawlynnong",
+    name: "Mawlynnong",
+    country: "India",
+    vibeId: "tropical",
+    tagline: "Living root bridges, low-season quiet",
+    bestWindowNote: "Flexible ±5 days · avoid the monsoon peak (Jun–Aug)",
+    packingHint: "Rain shell, grip-sole trekking shoes",
+  },
+  {
+    id: "wayanad",
+    name: "Wayanad",
+    country: "India",
+    vibeId: "tropical",
+    tagline: "Spice plantations and misty ghats",
+    bestWindowNote: "Flexible ±5 days · Oct–Mar for clearer trails",
+    packingHint: "Rain shell, insect repellent",
+  },
+  {
+    id: "coorg",
+    name: "Coorg",
+    country: "India",
+    vibeId: "tropical",
+    tagline: "Coffee estates and waterfalls off the highway",
+    bestWindowNote: "Flexible ±4 days · Oct–Mar",
+    packingHint: "Rain shell, comfortable trekking shoes",
+  },
+];
+
+export function findDestinationById(id) {
+  return DESTINATIONS.find((d) => d.id === id) ?? null;
+}

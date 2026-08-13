@@ -1,0 +1,16 @@
+{
+  "name": "compass",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Compass — AI travel planner. Backend-centric API + a render-only React front end.",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace backend & npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "test": "npm run test --workspace backend"
+  }
+}
