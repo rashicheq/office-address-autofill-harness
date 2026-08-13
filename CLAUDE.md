@@ -10,7 +10,7 @@ Owner: Rashi, PM on Credit Cards (pre-onboarding funnel). Full working style is 
 
 ## 2. What this repo is
 
-A **local test harness** — not the production feature — for validating the Office Address Autofill V2 solution (see full PRD at `docs/PRD_Office_Address_Autofill.md`). It exists so Rashi can:
+A **local test harness** — not the production feature — for validating the Office Address Autofill V2 solution (original problem framing at `docs/PRD_Office_Address_Autofill.md`; the current as-built spec — the actual flow, field model, Google API integration split, and test-case/open-question status — is `docs/PRD_Office_Address_Autofill_V2.md`, current as of 2026-08-07). It exists so Rashi can:
 
 1. Type an office name and see what Google Places actually returns.
 2. See those results run through the existing formatting/ranking logic.

@@ -1,6 +1,6 @@
 # Office Address Autofill — Test Harness
 
-Local harness for validating the Office Address Autofill V2 ranking, formatting, and confidence-scoring logic against mock data (and now, optionally, real Google Places data). See `CLAUDE.md` for full PM/context and `docs/PRD_Office_Address_Autofill.md` for the product spec.
+Local harness for validating the Office Address Autofill V2 ranking, formatting, and confidence-scoring logic against mock data (and now, optionally, real Google Places data). See `CLAUDE.md` for full PM/context, `docs/PRD_Office_Address_Autofill_V2.md` for the current, as-built product spec (flow, Google API integration split, field model, test cases, open questions), and `docs/PRD_Office_Address_Autofill.md` for the original pre-build draft it supersedes.
 
 ## Run it
 

@@ -36,9 +36,9 @@ export const OPEN_QUESTIONS = [
   {
     id: "OQ-3",
     question: "When no numeric component exists at all, should the UI actively prompt for a floor/door number instead of silently defaulting to \"1\"?",
-    status: "open",
-    currentDefault: "Silent default '1, ' + Flag:DefaultNumberInserted only — the harness implements the PRD's documented current behavior, not the recommended prompt-instead alternative.",
-    prdRef: "PRD Section 8 / TC-11",
+    status: "resolved-by-restructuring",
+    currentDefault: "Resolved 2026-08 in favor of prompting: Address Line 1 is now always a required, user-typed field for every result, superseding the silent '1, ' default. That default still exists in formattingPipeline.js, but only for Dev Mode's legacy diagnostic view — User Mode never reads it.",
+    prdRef: "PRD_Office_Address_Autofill_V2.md Section 12 / originally PRD Section 8 / TC-11",
   },
   {
     id: "OQ-4",

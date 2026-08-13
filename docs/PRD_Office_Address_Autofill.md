@@ -2,6 +2,8 @@
 
 **Owner:** Rashi | **Stage:** Draft for review | **Last updated:** 18 July 2026
 
+> **Superseded by `PRD_Office_Address_Autofill_V2.md` (7 August 2026).** This original draft's Problem Statement and V1/V2 phasing rationale are still valid background — kept here unmodified for that reason — but its Section 3 onward (formatting rules, test cases, open questions) describes the *pre-build* thinking, not what was actually designed and validated since. Read the V2 document for the current state.
+
 ---
 
 ## 1. Problem Statement
