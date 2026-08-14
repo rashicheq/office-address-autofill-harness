@@ -841,29 +841,37 @@
     searchState.fallbackAreas = [];
   }
 
-  function handleSearchClick() {
+  function handleSearchClick(showManualFieldsBelow) {
     var q = searchState.query.trim();
     if (q.length < MIN_QUERY_LENGTH) return;
     searchState.suggestions = listSuggestions(q);
     searchState.fallbackAreas = searchState.suggestions.length === 0 ? listFallbackAreaSuggestions() : [];
     searchState.phase = "results";
-    renderSearchPanel();
+    renderSearchPanel(showManualFieldsBelow);
   }
 
   // Not on Google Maps under this name - clear the query and hand focus
   // straight back to the bar so pivoting to a fresh area search feels like a
   // continuation of the same search, not a dead end.
-  function handleSearchAreaInstead() {
+  function handleSearchAreaInstead(showManualFieldsBelow) {
     searchState.query = "";
     searchState.phase = "idle";
     searchState.suggestions = [];
     searchState.fallbackAreas = [];
-    renderSearchPanel();
+    renderSearchPanel(showManualFieldsBelow);
     var el = document.getElementById("search-input");
     if (el) el.focus();
   }
 
-  function renderSearchPanel() {
+  // showManualFieldsBelow: 2026-08 - the panel stays mounted for as long as
+  // nothing has resolved yet, including through manual entry (mirrors
+  // UserModeView.jsx's showSearchPanel), so "Enter address manually" is a
+  // fork you can still search your way back out of. When true, the manual
+  // editor fields (buildEditorHtml) render directly below the search UI and
+  // the "+ Enter address manually" link itself is dropped - it would just
+  // re-trigger resolve(null, null) and wipe whatever's already been typed
+  // into those now-visible fields.
+  function renderSearchPanel(showManualFieldsBelow) {
     var canSearch = searchState.query.trim().length >= MIN_QUERY_LENGTH;
     var showResults = searchState.phase === "results" && searchState.suggestions.length > 0;
     var showNoMatch = searchState.phase === "results" && searchState.suggestions.length === 0;
@@ -907,7 +915,11 @@
       html += '<button type="button" class="search-area-cta" id="search-area-instead-btn">📍 Search a different area</button>';
     }
 
-    html += '<button type="button" class="btn-link manual-entry-link" id="manual-entry-link-btn">+ Enter address manually</button>';
+    if (showManualFieldsBelow) {
+      html += buildEditorHtml();
+    } else {
+      html += '<button type="button" class="btn-link manual-entry-link" id="manual-entry-link-btn">+ Enter address manually</button>';
+    }
 
     $card.innerHTML = html;
 
@@ -915,17 +927,17 @@
     $input.addEventListener("input", function (e) {
       searchState.query = e.target.value;
       if (searchState.phase === "results") searchState.phase = "idle";
-      renderSearchPanel();
+      renderSearchPanel(showManualFieldsBelow);
       var el = document.getElementById("search-input");
       el.focus();
       el.setSelectionRange(el.value.length, el.value.length);
     });
     $input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") handleSearchClick();
+      if (e.key === "Enter") handleSearchClick(showManualFieldsBelow);
     });
 
     var $searchBtn = document.getElementById("search-cta-btn");
-    $searchBtn.addEventListener("click", handleSearchClick);
+    $searchBtn.addEventListener("click", function () { handleSearchClick(showManualFieldsBelow); });
 
     if (showResults) {
       Array.prototype.forEach.call($card.querySelectorAll("[data-suggestion-index]"), function (btn) {
@@ -943,12 +955,18 @@
           resolve(s.candidate, { label: s.label, kind: s.kind });
         });
       });
-      document.getElementById("search-area-instead-btn").addEventListener("click", handleSearchAreaInstead);
+      document.getElementById("search-area-instead-btn").addEventListener("click", function () {
+        handleSearchAreaInstead(showManualFieldsBelow);
+      });
     }
 
-    document.getElementById("manual-entry-link-btn").addEventListener("click", function () {
-      resolve(null, null);
-    });
+    if (showManualFieldsBelow) {
+      wireEditorListeners();
+    } else {
+      document.getElementById("manual-entry-link-btn").addEventListener("click", function () {
+        resolve(null, null);
+      });
+    }
   }
 
   /* ============================= Resolving a pick ============================= */
@@ -1041,21 +1059,10 @@
   }
 
   /* ============================= Render: Address screen ============================= */
-  function renderAddressScreen() {
-    $title.textContent = "Add your office address";
-    $subtitle.textContent = "To verify your employment details";
-    $backBtn.disabled = false;
-
-    var showEditor = state.hasResolved || state.showManual;
-
-    if (!showEditor) {
-      // 2026-08 correction: no more "Looking for..." holding screen - the
-      // address page opens straight on the inline search panel, pre-filled
-      // and one Search click away from the mock Places call.
-      renderSearchPanel();
-      return;
-    }
-
+  // Structured fields HTML/listeners, factored out so they can render either
+  // standalone (once something has resolved) or appended below the search
+  // panel (manual entry, before anything has resolved - see renderSearchPanel).
+  function buildEditorHtml() {
     var fieldsReadOnly = state.hasResolved;
     var canConfirm = state.addressLine1.trim().length > 0;
     var f = state.fields;
@@ -1096,7 +1103,12 @@
     if (!canConfirm) html += '<p class="field-hint warn">Add Address Line 1 to continue.</p>';
     if (state.confirmed) html += '<p class="confirmed-note">✓ Address confirmed (prototype — no further step).</p>';
 
-    $card.innerHTML = html;
+    return html;
+  }
+
+  function wireEditorListeners() {
+    var fieldsReadOnly = state.hasResolved;
+    var canConfirm = state.addressLine1.trim().length > 0;
 
     document.getElementById("f-selectedlocation").addEventListener("input", function (e) { state.selectedLocation = e.target.value; });
     if (state.isAreaPick) {
@@ -1122,6 +1134,24 @@
     if ($confirmBtn) $confirmBtn.addEventListener("click", function () {
       if (canConfirm) { state.confirmed = true; renderAddressScreen(); }
     });
+  }
+
+  function renderAddressScreen() {
+    $title.textContent = "Add your office address";
+    $subtitle.textContent = "To verify your employment details";
+    $backBtn.disabled = false;
+
+    if (!state.hasResolved) {
+      // 2026-08: the search panel stays available for as long as nothing has
+      // resolved yet - including through manual entry - so "Enter address
+      // manually" is a fork you can still search your way back out of,
+      // instead of a screen with no search option at all.
+      renderSearchPanel(state.showManual);
+      return;
+    }
+
+    $card.innerHTML = buildEditorHtml();
+    wireEditorListeners();
   }
 
   function renderApp() {

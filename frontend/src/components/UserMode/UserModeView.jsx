@@ -145,6 +145,11 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
   };
 
   const showEditor = hasResolved || showManual;
+  // The search panel stays available for as long as nothing has actually
+  // resolved yet - including through manual entry - so choosing "Enter
+  // address manually" is a fork you can still search your way back out of,
+  // never a dead end you're stuck in once you've picked it (2026-08).
+  const showSearchPanel = !isBlocked && !hasResolved;
   const header = HEADER_COPY[step];
   const canConfirm = addressLine1.trim().length > 0;
   // Fields populated from a Places pick are locked - only Address Line 1
@@ -209,8 +214,13 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
               </div>
             )}
 
-            {!isBlocked && !showEditor && (
-              <OfficeSearchPanel initialQuery={searchSeed} dataSource={dataSource} onResolve={handleSearchResolve} />
+            {showSearchPanel && (
+              <OfficeSearchPanel
+                initialQuery={searchSeed}
+                dataSource={dataSource}
+                onResolve={handleSearchResolve}
+                showManualLink={!showManual}
+              />
             )}
 
             {showEditor && (

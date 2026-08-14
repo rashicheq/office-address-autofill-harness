@@ -15,7 +15,14 @@ const MIN_QUERY_LENGTH = 3;
 // always includes a few random nearby-area suggestions (`fallbackAreas`)
 // alongside the real (empty) results, so there's always something to click
 // besides "search again" or "enter manually."
-export default function OfficeSearchPanel({ initialQuery, dataSource, onResolve }) {
+//
+// 2026-08: this panel now also stays mounted, above the manual-entry form,
+// once the user has chosen manual entry (see UserModeView's `!hasResolved`
+// condition) - search is never a dead end you can only reach once. The
+// caller hides the "+ Enter address manually" link in that case
+// (showManualLink=false) since it's redundant there, and re-clicking it
+// would wipe whatever the user has already typed into the manual fields.
+export default function OfficeSearchPanel({ initialQuery, dataSource, onResolve, showManualLink = true }) {
   const [query, setQuery] = useState(initialQuery || "");
   const [phase, setPhase] = useState("idle"); // "idle" | "searching" | "results" | "resolving" | "branches"
   const [suggestions, setSuggestions] = useState([]);
@@ -189,9 +196,11 @@ export default function OfficeSearchPanel({ initialQuery, dataSource, onResolve 
         </div>
       )}
 
-      <button type="button" className="link-btn manual-entry-link" onClick={handleManualFallback}>
-        + Enter address manually
-      </button>
+      {showManualLink && (
+        <button type="button" className="link-btn manual-entry-link" onClick={handleManualFallback}>
+          + Enter address manually
+        </button>
+      )}
     </div>
   );
 }
