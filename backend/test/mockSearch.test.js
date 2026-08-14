@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { listSuggestions } from "../src/lib/mockSearch.js";
+import { listSuggestions, listFallbackAreaSuggestions } from "../src/lib/mockSearch.js";
 
 test("listSuggestions matches a real company name (kind: office)", () => {
   const results = listSuggestions("che");
@@ -45,4 +45,26 @@ test("listSuggestions returns nothing for an empty query", () => {
 
 test("listSuggestions returns nothing when nothing matches", () => {
   assert.deepEqual(listSuggestions("Zzzznonexistent"), []);
+});
+
+test("listFallbackAreaSuggestions returns the requested count of area-kind suggestions", () => {
+  const results = listFallbackAreaSuggestions(3);
+  assert.equal(results.length, 3);
+  for (const r of results) {
+    assert.equal(r.kind, "area");
+    assert.ok(r.key);
+    assert.ok(r.label);
+  }
+});
+
+test("listFallbackAreaSuggestions never duplicates an area within one call", () => {
+  const results = listFallbackAreaSuggestions(5);
+  const keys = results.map((r) => r.key);
+  assert.equal(new Set(keys).size, keys.length);
+});
+
+test("listFallbackAreaSuggestions caps at however many area fixtures actually exist", () => {
+  const results = listFallbackAreaSuggestions(999);
+  assert.ok(results.length > 0);
+  assert.ok(results.every((r) => r.kind === "area"));
 });

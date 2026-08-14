@@ -76,6 +76,29 @@ export function listSuggestions(query) {
   });
 }
 
+const FALLBACK_AREA_COUNT = 3;
+
+// Rashi, 2026-08: a genuine no-match shouldn't be a dead end even before the
+// user does anything about it — a handful of random nearby-area suggestions
+// give them something clickable immediately. Deliberately a SEPARATE
+// function from listSuggestions (which stays a pure, deterministic
+// substring match — existing tests assert it returns [] on no-match) rather
+// than folding randomness into that one; the /suggest route calls both and
+// lets the frontend decide when to show which. Sampling from the same
+// kind:"area" fixtures listSuggestions already knows how to resolve, so a
+// picked fallback goes through the exact same /search + sparse-data path as
+// a "real" area match — nothing about it is faked beyond which options are
+// offered.
+export function listFallbackAreaSuggestions(count = FALLBACK_AREA_COUNT) {
+  const areas = fixtures.entries.filter((e) => e.kind === "area");
+  const shuffled = [...areas].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count).map((e) => ({
+    key: e.key,
+    label: e.names[0],
+    kind: "area",
+  }));
+}
+
 function resolveEntry(entryKey) {
   const entry = entryByKey.get(entryKey);
   if (!entry) return null;

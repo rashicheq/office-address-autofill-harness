@@ -30,18 +30,18 @@ Developer Mode has a **Batch search** section: paste one office name per line (e
 
 ### Career Info flow (User Mode)
 
-User Mode opens on **Company Details** (name/designation/email/experience). Submitting it opens a full-page bottom sheet immediately — a search bar pre-filled with the company name ("like Google Maps' search bar, but without the map view"), with live suggestions as you type. This mocks Google Places Autocomplete (no key/setup for that API either) via `GET /suggest`, scanning the fixture set:
+User Mode opens on **Company Details** (name/designation/email/experience). Submitting it takes you straight to the address page, which opens on an **inline search panel** — a search bar pre-filled with the company name plus an explicit **Search** button (2026-08: there's no bottom sheet anymore, and nothing is looked up automatically — the mock Google Places Autocomplete call fires only when you click Search or press Enter). This mocks Google Places Autocomplete (no key/setup for that API either) via `GET /suggest`, scanning the fixture set:
 
 - **Office** suggestions (a real company/place) resolve to that candidate's full data.
 - **Area** suggestions (a bare locality, e.g. "Koramangala") resolve the same way, just with far fewer raw components to work with — see the field model below.
 - Multiple branches (e.g. "Vantage Corp") show **every branch as its own row directly in the dropdown**, closest first — the user picks the specific office they work at in one step, no second picker screen.
-- No match → a **"📍 Search area" CTA sits right next to the search bar** (not a buried message) so you can pivot straight into an area search; "Enter address manually instead" stays as a secondary fallback — never a dead end.
+- No match → never a dead end: a few **random nearby areas** are suggested anyway (`fallbackAreas`, 3 picked at random from the area fixtures each time), with a "📍 Search a different area" button below them to clear the query and try again; "Enter address manually" stays reachable as a fallback too.
 
-The confirm screen shows **"Selected location"** — the actual Places result's own name (e.g. "CheQ Digital Private Limited", or the specific branch picked, like "Vantage Corp (Electronic City Branch)") rather than the office name that was searched, since that's more useful to verify against. It's a plain editable field with no re-search action of its own. A separate **"Area"** row appears only when a locality match was picked, with its own "Search area" button that reopens the sheet seeded with the area's current value — independent of "Selected location," so re-searching one never clears the other.
+The confirm screen shows **"Selected location"** — the actual Places result's own name (e.g. "CheQ Digital Private Limited", or the specific branch picked, like "Vantage Corp (Electronic City Branch)") rather than the office name that was searched, since that's more useful to verify against. It's a plain editable field with no re-search action of its own. A separate **"Area"** row appears only when a locality match was picked, with its own "Search area" button that reopens the inline search panel seeded with the area's current value — independent of "Selected location," so re-searching one never clears the other.
 
 **Address fields (2026-08 pivot):** the confirm screen no longer uses the backend rules engine at all. `frontend/src/lib/addressLineConfig.js` builds **Address Line 2** (subpremise + premise + street_number) and **Address Line 3** (route) directly from the raw Google-typed components — no abbreviation, no dropping, no length budget. **Address Line 1 is never auto-filled, for any result** — the user always types it (floor number, building/tower name), and "Confirm and Continue" is disabled until it has text. City/District, State, and Pincode are still simple passthroughs, unchanged. This is independent, user-owned state exactly like Selected location — re-searching the office or area never clears whatever's already typed into Line 1.
 
-**Field editability (2026-08 Places-Autocomplete-prefill PRD):** once a result comes from a Places pick, every field it populated — Line 2/3, Pincode, City/District, State — is **read-only**; only Address Line 1 accepts typing. In full manual entry (no Places result at all), every field is a normal editable input. The search sheet also now withholds suggestions until the query has 3+ characters, and the real Places Text Search call (when a key is configured) sends `regionCode: "IN"` and biases the query text toward office-type results.
+**Field editability (2026-08 Places-Autocomplete-prefill PRD):** once a result comes from a Places pick, every field it populated — Line 2/3, Pincode, City/District, State — is **read-only**; only Address Line 1 accepts typing. In full manual entry (no Places result at all), every field is a normal editable input. The Search button also stays disabled until the query has 3+ characters, and the real Places Text Search call (when a key is configured) sends `regionCode: "IN"` and biases the query text toward office-type results.
 
 No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 for what wiring in the real ones later would need.
 
@@ -55,14 +55,14 @@ No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made a
   - `src/lib/mockSearch.js` — the Mock Data path: fixture lookup -> formatting pipeline -> ranker -> confidence.
   - `src/lib/livePlacesClient.js` — thin wrapper around Google Places Text Search (New).
   - `src/lib/liveSearch.js` — the Live API path: real Places call -> Google-response normalizer (incl. untyped-component decomposition for messy real data) -> the SAME formatting pipeline / ranker / confidence used by Mock Data. Also the "no key configured" stub.
-  - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py`, named edge-case scenarios (including `sparse-components`, the 50%-missing demo), and `kind: "area"` entries used by the search-sheet's area suggestions.
-  - `listSuggestions` (in `mockSearch.js`) — backs `GET /suggest`, the mocked autocomplete for the search sheet.
+  - `src/data/fixtures.json` — the 4 real companies from `sort_office_addresses.py`, named edge-case scenarios (including `sparse-components`, the 50%-missing demo), and `kind: "area"` entries used both by real area suggestions and by the random no-match fallback.
+  - `listSuggestions` / `listFallbackAreaSuggestions` (in `mockSearch.js`) — back `GET /suggest`'s two response fields: real matches, and (2026-08) a handful of random area suggestions shown whenever the real match list is empty, so a no-match search is never a dead end.
 - `frontend/` — React app (Vite). Single codebase, mode/data-source toggles rather than separate apps.
   - `src/lib/addressLineConfig.js` — the **2026-08 field-model pivot**: builds Address Line 2/3 directly from a result's raw `addressComponents`, no rules engine involved. This is what User Mode's confirm screen actually uses now.
   - `components/DeveloperMode/ResultCard.jsx` — the structured-field result display (old rules-engine output), shared by the single-search view and the batch runner. Dev Mode only.
   - `components/DeveloperMode/BatchRunner.jsx` — the batch-search UI.
   - `components/UserMode/CompanyDetailsView.jsx` — the Career Info intake screen (Company Name feeds the search).
-  - `components/UserMode/OfficeSearchSheet.jsx` — the search-bar bottom sheet (office/area suggestions + multi-branch picker).
+  - `components/UserMode/OfficeSearchPanel.jsx` — the inline address-page search panel (2026-08, replaces the old bottom sheet): pre-filled search bar + explicit Search CTA, office/area suggestions, multi-branch rows, and random fallback areas on no-match.
   - `components/UserMode/UserModeView.jsx` — the confirm screen: Selected location, Area (when applicable), Address Line 1/2/3, City/District, State, Pincode.
 
 ## Tests

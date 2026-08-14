@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { searchRouter } from "./routes/search.js";
-import { listScenarios, listSuggestions } from "./lib/mockSearch.js";
+import { listScenarios, listSuggestions, listFallbackAreaSuggestions } from "./lib/mockSearch.js";
 import { CONFIG, OPEN_QUESTIONS } from "./config.js";
 import { isLiveApiConfigured } from "./lib/liveSearch.js";
 
@@ -22,10 +22,16 @@ app.get("/scenarios", (req, res) => {
   res.json({ scenarios: listScenarios() });
 });
 
-// User Mode's search-sheet suggestions (mocks Places Autocomplete — no key
+// User Mode's inline address-page search (mocks Places Autocomplete — no key
 // for that API yet, see CLAUDE.md 4.0's 2026-08 flow-correction note).
+// fallbackAreas is always included alongside suggestions - a handful of
+// random nearby areas the frontend shows only when suggestions comes back
+// empty, so a no-match search is never a dead end (2026-08).
 app.get("/suggest", (req, res) => {
-  res.json({ suggestions: listSuggestions(req.query.q) });
+  res.json({
+    suggestions: listSuggestions(req.query.q),
+    fallbackAreas: listFallbackAreaSuggestions(),
+  });
 });
 
 // Dev Mode's "open questions" panel — surfaces OQ-2/OQ-3/OQ-4/OQ-7 and the

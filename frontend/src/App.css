@@ -805,51 +805,16 @@ body {
   font-size: 13px;
 }
 
-/* --- Search sheet: full-page bottom sheet, search bar + suggestions list --- */
-.map-sheet-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 17, 21, 0.55);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 100;
-}
-
-.map-sheet {
-  background: var(--white);
-  width: 100%;
-  max-width: 430px;
-  height: 92vh;
-  border-radius: 20px 20px 0 0;
+/* --- Inline office search panel: pre-filled search bar + explicit Search
+   CTA, results/fallback areas/manual-entry all in the flow of the address
+   page itself (2026-08: no more full-page sheet/overlay). --- */
+.search-panel {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+  gap: 4px;
 }
 
-.map-sheet-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.map-sheet-title {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.map-sheet-office-name {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.map-sheet-search-row {
-  padding: 12px 18px 0;
-  flex-shrink: 0;
+.inline-search-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -886,6 +851,11 @@ body {
   outline: none;
 }
 
+.search-cta {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .search-area-cta {
   display: flex;
   align-items: center;
@@ -907,12 +877,10 @@ body {
 }
 
 .suggestion-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px 18px 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin: 14px 0;
 }
 
 .suggestion-item {
@@ -955,7 +923,17 @@ body {
   margin-top: 2px;
 }
 
-.map-sheet-loading {
-  padding: 24px 18px;
+.search-loading {
+  padding: 16px 0;
   text-align: center;
+}
+
+.no-match-note {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin: 14px 0 4px;
+}
+
+.manual-entry-link {
+  margin-top: 12px;
 }

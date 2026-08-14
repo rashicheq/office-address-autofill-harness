@@ -1,6 +1,6 @@
 import { useState } from "react";
 import CompanyDetailsView from "./CompanyDetailsView.jsx";
-import OfficeSearchSheet from "./OfficeSearchSheet.jsx";
+import OfficeSearchPanel from "./OfficeSearchPanel.jsx";
 import { buildAddressLines } from "../../lib/addressLineConfig.js";
 
 const EMPTY_FIELDS = {
@@ -17,11 +17,15 @@ const HEADER_COPY = {
 };
 
 // Replicates the attached Figma screens and Rashi's 2026-08 flow corrections.
-// Career Info's Company Details screen submits straight into a full-page
-// search sheet (office name pre-filled, "like Google Maps' search bar but
-// without the map view" — no Maps JS/Autocomplete key set up yet, so
-// suggestions are mocked against the fixture set, see OfficeSearchSheet.jsx
-// and backend GET /suggest).
+//
+// Search (2026-08 correction — no more bottom sheet): Career Info's Company
+// Details screen submits straight to this address page, which opens on an
+// inline search panel (OfficeSearchPanel.jsx) — a search bar pre-filled with
+// the office name plus an explicit Search CTA. Nothing is looked up until
+// Search is clicked (or Enter pressed); that's the moment the mocked Places
+// Autocomplete call fires (no key set up yet, see GET /suggest). A genuine
+// no-match still isn't a dead end — the backend always returns a few random
+// nearby-area suggestions alongside the (empty) real results.
 //
 // Address fields (2026-08 "frontend config" pivot): the backend's
 // tier/drop/shorten rules engine no longer drives what this screen shows —
@@ -49,16 +53,15 @@ const HEADER_COPY = {
 // Digital Private Limited", "Vantage Corp (Koramangala Branch)", or an
 // area's own name like "Koramangala, Bengaluru"), since that's the thing
 // worth verifying against, not the original search query. `officeName`
-// still exists internally - it seeds the search sheet and the pre-resolve
-// empty-state text - it just isn't rendered as its own row here anymore.
+// still exists internally - it seeds the search panel's initial query - it
+// just isn't rendered as its own row here anymore.
 export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [step, setStep] = useState("company"); // "company" | "address"
   const [officeName, setOfficeName] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [areaLabel, setAreaLabel] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
-  const [showSearchSheet, setShowSearchSheet] = useState(false);
-  const [sheetSeed, setSheetSeed] = useState("");
+  const [searchSeed, setSearchSeed] = useState("");
   const [hasResolved, setHasResolved] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [showManual, setShowManual] = useState(false);
@@ -69,13 +72,16 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
   // Office name has no on-screen re-search action of its own (it isn't
   // rendered as a field at all anymore - see the "Selected location" note
-  // above); it only lives on as the seed for the very first search, before
-  // anything is resolved. Area still gets its own "Search area" button that
-  // reopens the sheet seeded with whichever area is currently selected (see
-  // handleSheetResolve for how area vs. office picks are told apart).
-  const openSheetFor = (seed) => {
-    setSheetSeed(seed);
-    setShowSearchSheet(true);
+  // above); it only lives on as the seed for the very first search. Area
+  // still gets its own "Search area" button that re-seeds the search panel
+  // with whichever area is currently selected (see handleSearchResolve for
+  // how area vs. office picks are told apart). Either path switches the
+  // page back to the search panel - hasResolved/showManual both go false
+  // until the next thing resolves.
+  const startSearch = (seed) => {
+    setSearchSeed(seed);
+    setHasResolved(false);
+    setShowManual(false);
   };
 
   const handleCompanyDetailsContinue = ({ companyName }) => {
@@ -84,16 +90,13 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setAreaLabel("");
     setAddressLine1("");
     setStep("address");
-    setHasResolved(false);
-    setShowManual(false);
     setConfirmed(false);
     setFields(EMPTY_FIELDS);
-    if (!isBlocked) openSheetFor(companyName);
+    if (!isBlocked) startSearch(companyName);
   };
 
   const handleBackToCompanyDetails = () => {
     setStep("company");
-    setShowSearchSheet(false);
     setHasResolved(false);
     setShowManual(false);
     setConfirmed(false);
@@ -104,8 +107,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setFields(EMPTY_FIELDS);
   };
 
-  const handleSheetResolve = (result, meta) => {
-    setShowSearchSheet(false);
+  const handleSearchResolve = (result, meta) => {
     setConfirmed(false);
     if (!result) {
       // No match, or the user chose to skip straight to manual entry -
@@ -123,7 +125,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
       return;
     }
     // Office name is Career Info context (the company you work for) - kept
-    // internally to re-seed the search sheet, but no longer shown on this
+    // internally to re-seed the search panel, but no longer shown on this
     // screen (Rashi, 2026-08): the confirm screen shows the actual place the
     // user picked instead, since that's more useful to verify against than
     // echoing back the original search query. Address Line 1 is independent,
@@ -136,16 +138,6 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setAreaLabel(meta?.kind === "area" ? meta?.label || "" : "");
     setHasResolved(true);
     setShowManual(false);
-  };
-
-  const handleManualStart = () => {
-    setShowManual(true);
-    setHasResolved(false);
-    setConfirmed(false);
-    setIsAreaPick(false);
-    setSelectedLocation("");
-    setAreaLabel("");
-    setFields(EMPTY_FIELDS);
   };
 
   const updateField = (key, value) => {
@@ -218,15 +210,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
             )}
 
             {!isBlocked && !showEditor && (
-              <div className="empty-state">
-                <p>Looking for the office address for &ldquo;{officeName}&rdquo;.</p>
-                <button type="button" className="primary-btn" onClick={() => openSheetFor(officeName)}>
-                  Search location
-                </button>
-                <button type="button" className="link-btn add-different" onClick={handleManualStart}>
-                  + Enter address manually
-                </button>
-              </div>
+              <OfficeSearchPanel initialQuery={searchSeed} dataSource={dataSource} onResolve={handleSearchResolve} />
             )}
 
             {showEditor && (
@@ -253,7 +237,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                       Area
                       <input value={areaLabel} onChange={(e) => setAreaLabel(e.target.value)} />
                     </label>
-                    <button type="button" className="secondary-btn" onClick={() => openSheetFor(areaLabel)}>
+                    <button type="button" className="secondary-btn" onClick={() => startSearch(areaLabel)}>
                       Search area
                     </button>
                   </div>
@@ -343,15 +327,6 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
           </div>
         )}
       </div>
-
-      {showSearchSheet && (
-        <OfficeSearchSheet
-          initialQuery={sheetSeed}
-          dataSource={dataSource}
-          onResolve={handleSheetResolve}
-          onClose={() => setShowSearchSheet(false)}
-        />
-      )}
     </div>
   );
 }

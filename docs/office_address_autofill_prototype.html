@@ -363,17 +363,6 @@
     margin: -6px 0 12px;
   }
 
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    text-align: center;
-    padding: 48px 0 0;
-    color: #6B7280;
-    font-size: 14px;
-  }
-
   .editor-hint {
     color: #6B7280;
     font-size: 12px;
@@ -387,62 +376,14 @@
     margin-top: 12px;
   }
 
-  /* ---------- Search sheet overlay ---------- */
-  .sheet-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 17, 21, 0.55);
-    display: none;
-    align-items: flex-end;
-    justify-content: center;
-    z-index: 100;
-  }
-
-  .sheet-overlay.open { display: flex; }
-
-  @keyframes sheet-up {
-    from { transform: translateY(24px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-
-  .sheet {
-    background: #FFFFFF;
-    width: 100%;
-    max-width: 380px;
-    height: 88vh;
-    max-height: 640px;
-    border-radius: 22px 22px 0 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .sheet { animation: sheet-up 0.22s ease; }
-  }
-
-  .sheet-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 18px;
-    border-bottom: 1px solid #EEF0F3;
-    flex-shrink: 0;
-  }
-
-  .sheet-header .icon-btn { background: #F3F4F6; color: #14151A; }
-  .sheet-header .icon-btn:hover { background: #E5E7EB; }
-
-  .sheet-title { font-size: 12px; color: #6B7280; }
-  .sheet-office-name { font-size: 16px; font-weight: 700; color: #14151A; }
-
-  .search-row {
-    padding: 12px 18px 0;
-    flex-shrink: 0;
+  /* ---------- Inline search panel (2026-08: no more bottom sheet - the
+     address page opens directly on this, pre-filled, one explicit Search
+     click away from the mock Places call) ---------- */
+  .inline-search-row {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 4px;
   }
 
   .search-bar {
@@ -470,30 +411,42 @@
 
   .search-bar input:focus { outline: none; }
 
+  .btn-search-cta {
+    flex-shrink: 0;
+    width: auto;
+    padding: 11px 20px;
+  }
+
   .search-area-cta {
-    display: none;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
+    width: 100%;
     background: #FFFFFF;
     border: 1px solid #D7DAE1;
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 11px 14px;
     font-size: 13px;
     font-weight: 600;
-    white-space: nowrap;
     cursor: pointer;
     color: #14151A;
-    flex-shrink: 0;
     font-family: inherit;
+    margin-top: 2px;
   }
 
-  .search-area-cta.show { display: flex; }
   .search-area-cta:hover { border-color: #9CA3AF; }
 
+  .no-match-note {
+    font-size: 12.5px;
+    color: #6B7280;
+    line-height: 1.5;
+    margin: 10px 0;
+  }
+
   .suggestion-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px 18px 18px;
+    padding: 0;
+    margin: 10px 0 14px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -533,16 +486,7 @@
 
   .chip-office { background: rgba(30, 158, 90, 0.12); color: #0F6E3D; }
 
-  .sheet-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    text-align: center;
-    padding: 24px 8px 0;
-    color: #6B7280;
-    font-size: 13.5px;
-  }
+  .manual-entry-link { display: block; margin-top: 8px; }
 
   .muted { color: #6B7280; font-size: 13px; text-align: center; margin-top: 40px; }
 
@@ -585,11 +529,11 @@
         </div>
         <div class="hint-row">
           <span class="hint-query">Acme Corp</span>
-          <span class="hint-desc">No match — "Search area" sits right next to the bar, manual entry always works.</span>
+          <span class="hint-desc">No match — a few random nearby areas are suggested anyway, manual entry always works.</span>
         </div>
         <div class="hint-row">
           <span class="hint-query">Xy</span>
-          <span class="hint-desc">Under 3 characters — the mock Autocomplete withholds results on purpose.</span>
+          <span class="hint-desc">Under 3 characters — the Search button stays disabled on purpose.</span>
         </div>
       </div>
 
@@ -611,25 +555,6 @@
 
         <div class="onboarding-card" id="card"></div>
       </div>
-    </div>
-  </div>
-
-  <div class="sheet-overlay" id="sheet-overlay" role="dialog" aria-modal="true">
-    <div class="sheet">
-      <div class="sheet-header">
-        <button class="icon-btn" id="sheet-close-btn" aria-label="Close">←</button>
-        <div>
-          <div class="sheet-title">Search office or area</div>
-        </div>
-      </div>
-      <div class="search-row">
-        <div class="search-bar">
-          <span aria-hidden="true">🔍</span>
-          <input id="sheet-input" placeholder="Search office name or area" autocomplete="off" />
-        </div>
-        <button class="search-area-cta" id="search-area-cta">📍 Search area</button>
-      </div>
-      <div class="suggestion-list" id="suggestion-list"></div>
     </div>
   </div>
 
@@ -831,6 +756,21 @@
     return out;
   }
 
+  /* =================== Random fallback areas (mockSearch.js:listFallbackAreaSuggestions) ===================
+     A genuine no-match still isn't a dead end (2026-08): a few random nearby
+     areas are offered alongside the (empty) real results, same as the real
+     backend's /suggest route now always includes fallbackAreas. */
+  var FALLBACK_AREA_COUNT = 3;
+
+  function listFallbackAreaSuggestions(count) {
+    count = count || FALLBACK_AREA_COUNT;
+    var areas = FIXTURES.filter(function (e) { return e.kind === "area"; });
+    var shuffled = areas.slice().sort(function () { return Math.random() - 0.5; });
+    return shuffled.slice(0, count).map(function (e) {
+      return { key: e.key, kind: e.kind, label: e.names[0], candidate: e.candidates[0] };
+    });
+  }
+
   /* =================== Address Line config (addressLineConfig.js) =================== */
   var LINE2_TYPES = ["subpremise", "premise", "street_number"];
   var LINE3_TYPES = ["route"];
@@ -864,26 +804,22 @@
     fields: Object.assign({}, EMPTY_FIELDS),
   };
 
-  var sheetState = {
-    open: false,
-    seed: "",
+  // Inline search panel state (2026-08: replaces the old sheetState - no
+  // more overlay, so nothing here needs an "open" flag). Nothing is looked
+  // up until Search is explicitly clicked (or Enter pressed) - that's the
+  // moment the mock Places call fires, so there's no debounce timer either.
+  var searchState = {
     query: "",
+    phase: "idle", // "idle" | "results"
     suggestions: [],
-    searched: false,
+    fallbackAreas: [],
   };
-
-  var debounceTimer = null;
 
   /* ============================= DOM refs ============================= */
   var $card = document.getElementById("card");
   var $title = document.getElementById("screen-title");
   var $subtitle = document.getElementById("screen-subtitle");
   var $backBtn = document.getElementById("back-btn");
-  var $sheetOverlay = document.getElementById("sheet-overlay");
-  var $sheetInput = document.getElementById("sheet-input");
-  var $suggestionList = document.getElementById("suggestion-list");
-  var $searchAreaCta = document.getElementById("search-area-cta");
-  var $sheetCloseBtn = document.getElementById("sheet-close-btn");
 
   function escapeHtml(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -891,83 +827,132 @@
     });
   }
 
-  /* ============================= Sheet control ============================= */
-  function openSheet(seed) {
-    sheetState.open = true;
-    sheetState.seed = seed || "";
-    sheetState.query = seed || "";
-    sheetState.suggestions = [];
-    sheetState.searched = false;
-    renderSheet();
-    $sheetOverlay.classList.add("open");
-    setTimeout(function () { $sheetInput.focus(); $sheetInput.select(); }, 20);
-    scheduleSearch();
+  /* ============================= Inline search panel ============================= */
+  // Seeds the panel with whichever value the caller hands in (the office
+  // name on first arrival, or the currently-selected area when reopened via
+  // "Search area") and drops back to the un-searched state - mirrors
+  // startSearch in the real UserModeView.jsx.
+  function startSearch(seed) {
+    state.hasResolved = false;
+    state.showManual = false;
+    searchState.query = seed || "";
+    searchState.phase = "idle";
+    searchState.suggestions = [];
+    searchState.fallbackAreas = [];
   }
 
-  function closeSheet() {
-    sheetState.open = false;
-    $sheetOverlay.classList.remove("open");
+  function handleSearchClick() {
+    var q = searchState.query.trim();
+    if (q.length < MIN_QUERY_LENGTH) return;
+    searchState.suggestions = listSuggestions(q);
+    searchState.fallbackAreas = searchState.suggestions.length === 0 ? listFallbackAreaSuggestions() : [];
+    searchState.phase = "results";
+    renderSearchPanel();
   }
 
-  function scheduleSearch() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(function () {
-      var q = sheetState.query.trim();
-      sheetState.searched = q.length >= MIN_QUERY_LENGTH;
-      sheetState.suggestions = sheetState.searched ? listSuggestions(q) : [];
-      renderSheet();
-    }, 200);
+  // Not on Google Maps under this name - clear the query and hand focus
+  // straight back to the bar so pivoting to a fresh area search feels like a
+  // continuation of the same search, not a dead end.
+  function handleSearchAreaInstead() {
+    searchState.query = "";
+    searchState.phase = "idle";
+    searchState.suggestions = [];
+    searchState.fallbackAreas = [];
+    renderSearchPanel();
+    var el = document.getElementById("search-input");
+    if (el) el.focus();
   }
 
-  function renderSheet() {
-    $sheetInput.value = sheetState.query;
-    var showEmpty = sheetState.searched && sheetState.suggestions.length === 0;
-    $searchAreaCta.classList.toggle("show", showEmpty);
+  function renderSearchPanel() {
+    var canSearch = searchState.query.trim().length >= MIN_QUERY_LENGTH;
+    var showResults = searchState.phase === "results" && searchState.suggestions.length > 0;
+    var showNoMatch = searchState.phase === "results" && searchState.suggestions.length === 0;
 
-    var html = "";
-    if (showEmpty) {
-      html += '<div class="sheet-empty-state">' +
-        '<p>We couldn&rsquo;t find &ldquo;' + escapeHtml(sheetState.query) + '&rdquo; on Google Maps under that name.</p>' +
-        '<button type="button" class="btn-link" id="manual-fallback-link">Enter address manually instead</button>' +
-        '</div>';
+    var html = '<div class="inline-search-row">' +
+      '<div class="search-bar">' +
+        '<span aria-hidden="true">🔍</span>' +
+        '<input id="search-input" placeholder="Search office name or area" autocomplete="off" value="' + escapeHtml(searchState.query) + '" />' +
+      '</div>' +
+      '<button type="button" class="btn btn-primary btn-search-cta" id="search-cta-btn"' + (canSearch ? "" : " disabled") + '>Search</button>' +
+      '</div>';
+
+    if (showResults) {
+      html += '<div class="suggestion-list">';
+      searchState.suggestions.forEach(function (s, i) {
+        var icon = s.kind === "area" ? "📍" : "🏢";
+        var chip = s.closest
+          ? '<span class="chip chip-office">Closest</span>'
+          : '<span class="chip' + (s.kind === "area" ? "" : " chip-office") + '">' + (s.kind === "area" ? "Area" : "Office") + "</span>";
+        html += '<button type="button" class="suggestion-item" data-suggestion-index="' + i + '">' +
+          '<span class="suggestion-icon" aria-hidden="true">' + icon + "</span>" +
+          '<span class="suggestion-label">' + escapeHtml(s.label) + "</span>" +
+          chip +
+          "</button>";
+      });
+      html += "</div>";
     }
-    sheetState.suggestions.forEach(function (s, i) {
-      var icon = s.kind === "area" ? "📍" : "🏢";
-      var chip = s.closest
-        ? '<span class="chip chip-office">Closest</span>'
-        : '<span class="chip' + (s.kind === "area" ? "" : " chip-office") + '">' + (s.kind === "area" ? "Area" : "Office") + "</span>";
-      html += '<button type="button" class="suggestion-item" data-suggestion-index="' + i + '">' +
-        '<span class="suggestion-icon" aria-hidden="true">' + icon + "</span>" +
-        '<span class="suggestion-label">' + escapeHtml(s.label) + "</span>" +
-        chip +
-        "</button>";
-    });
-    $suggestionList.innerHTML = html;
 
-    if (showEmpty) {
-      document.getElementById("manual-fallback-link").addEventListener("click", function () {
-        resolve(null, null);
+    if (showNoMatch) {
+      html += '<p class="no-match-note">We couldn&rsquo;t find &ldquo;' + escapeHtml(searchState.query) +
+        '&rdquo; on Google Maps under that name. Try one of these nearby areas instead:</p>';
+      html += '<div class="suggestion-list">';
+      searchState.fallbackAreas.forEach(function (s, i) {
+        html += '<button type="button" class="suggestion-item" data-fallback-index="' + i + '">' +
+          '<span class="suggestion-icon" aria-hidden="true">📍</span>' +
+          '<span class="suggestion-label">' + escapeHtml(s.label) + "</span>" +
+          '<span class="chip">Area</span>' +
+          "</button>";
+      });
+      html += "</div>";
+      html += '<button type="button" class="search-area-cta" id="search-area-instead-btn">📍 Search a different area</button>';
+    }
+
+    html += '<button type="button" class="btn-link manual-entry-link" id="manual-entry-link-btn">+ Enter address manually</button>';
+
+    $card.innerHTML = html;
+
+    var $input = document.getElementById("search-input");
+    $input.addEventListener("input", function (e) {
+      searchState.query = e.target.value;
+      if (searchState.phase === "results") searchState.phase = "idle";
+      renderSearchPanel();
+      var el = document.getElementById("search-input");
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+    $input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") handleSearchClick();
+    });
+
+    var $searchBtn = document.getElementById("search-cta-btn");
+    $searchBtn.addEventListener("click", handleSearchClick);
+
+    if (showResults) {
+      Array.prototype.forEach.call($card.querySelectorAll("[data-suggestion-index]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var s = searchState.suggestions[Number(btn.getAttribute("data-suggestion-index"))];
+          resolve(s.candidate, { label: s.label, kind: s.kind });
+        });
       });
     }
-    Array.prototype.forEach.call($suggestionList.querySelectorAll(".suggestion-item"), function (btn) {
-      btn.addEventListener("click", function () {
-        var s = sheetState.suggestions[Number(btn.getAttribute("data-suggestion-index"))];
-        resolve(s.candidate, { label: s.label, kind: s.kind });
-      });
-    });
-  }
 
-  function searchAreaInstead() {
-    sheetState.query = "";
-    sheetState.suggestions = [];
-    sheetState.searched = false;
-    renderSheet();
-    $sheetInput.focus();
+    if (showNoMatch) {
+      Array.prototype.forEach.call($card.querySelectorAll("[data-fallback-index]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var s = searchState.fallbackAreas[Number(btn.getAttribute("data-fallback-index"))];
+          resolve(s.candidate, { label: s.label, kind: s.kind });
+        });
+      });
+      document.getElementById("search-area-instead-btn").addEventListener("click", handleSearchAreaInstead);
+    }
+
+    document.getElementById("manual-entry-link-btn").addEventListener("click", function () {
+      resolve(null, null);
+    });
   }
 
   /* ============================= Resolving a pick ============================= */
   function resolve(candidate, meta) {
-    closeSheet();
     state.confirmed = false;
     if (!candidate) {
       // No match, or the user chose to skip straight to manual entry - never
@@ -983,7 +968,7 @@
       renderApp();
       return;
     }
-    // Office name is kept only to re-seed the search sheet - the confirm
+    // Office name is kept only to re-seed the search panel - the confirm
     // screen shows the actual place the user picked instead (selectedLocation),
     // since that's more useful to verify against than the original search
     // query. Address Line 1 is independent, user-owned state - a location
@@ -1009,23 +994,10 @@
     state.areaLabel = "";
     state.addressLine1 = "";
     state.step = "address";
-    state.hasResolved = false;
-    state.showManual = false;
     state.confirmed = false;
     state.isAreaPick = false;
     state.fields = Object.assign({}, EMPTY_FIELDS);
-    renderApp();
-    openSheet(companyName);
-  }
-
-  function manualStart() {
-    state.showManual = true;
-    state.hasResolved = false;
-    state.confirmed = false;
-    state.isAreaPick = false;
-    state.selectedLocation = "";
-    state.areaLabel = "";
-    state.fields = Object.assign({}, EMPTY_FIELDS);
+    startSearch(companyName);
     renderApp();
   }
 
@@ -1077,14 +1049,10 @@
     var showEditor = state.hasResolved || state.showManual;
 
     if (!showEditor) {
-      $card.innerHTML =
-        '<div class="empty-state">' +
-        '<p>Looking for the office address for &ldquo;' + escapeHtml(state.officeName) + '&rdquo;.</p>' +
-        '<button type="button" class="btn btn-primary" id="search-location-btn" style="width:auto;padding-left:24px;padding-right:24px;">Search location</button>' +
-        '<button type="button" class="btn-link" id="manual-start-btn">+ Enter address manually</button>' +
-        "</div>";
-      document.getElementById("search-location-btn").addEventListener("click", function () { openSheet(state.officeName); });
-      document.getElementById("manual-start-btn").addEventListener("click", manualStart);
+      // 2026-08 correction: no more "Looking for..." holding screen - the
+      // address page opens straight on the inline search panel, pre-filled
+      // and one Search click away from the mock Places call.
+      renderSearchPanel();
       return;
     }
 
@@ -1133,7 +1101,10 @@
     document.getElementById("f-selectedlocation").addEventListener("input", function (e) { state.selectedLocation = e.target.value; });
     if (state.isAreaPick) {
       document.getElementById("f-arealabel").addEventListener("input", function (e) { state.areaLabel = e.target.value; });
-      document.getElementById("search-area-btn").addEventListener("click", function () { openSheet(state.areaLabel); });
+      document.getElementById("search-area-btn").addEventListener("click", function () {
+        startSearch(state.areaLabel);
+        renderAddressScreen();
+      });
     }
     document.getElementById("f-line1").addEventListener("input", function (e) {
       state.addressLine1 = e.target.value;
@@ -1160,12 +1131,6 @@
 
   /* ============================= Wire static controls ============================= */
   $backBtn.addEventListener("click", function () { if (!$backBtn.disabled) goToCompanyDetails(); });
-  $sheetCloseBtn.addEventListener("click", closeSheet);
-  $searchAreaCta.addEventListener("click", searchAreaInstead);
-  $sheetInput.addEventListener("input", function (e) {
-    sheetState.query = e.target.value;
-    scheduleSearch();
-  });
 
   renderApp();
 })();
