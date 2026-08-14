@@ -1,0 +1,1151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Office Address Prototype</title>
+<style>
+  :root {
+    --page-bg: #EEF0F3;
+    --page-bg-2: #E4E7EC;
+    --page-ink: #14151A;
+    --page-muted: #6B7280;
+    --page-line: #D7DAE1;
+    --accent: #1E9E5A;
+    --accent-ink: #0F6E3D;
+    --card: #FFFFFF;
+    --shadow: 0 1px 2px rgba(20, 21, 26, 0.04), 0 24px 48px -20px rgba(20, 21, 26, 0.28);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page-bg: #0B0C10;
+      --page-bg-2: #131419;
+      --page-ink: #E9EAEE;
+      --page-muted: #9497A6;
+      --page-line: #262832;
+      --accent: #34C77B;
+      --accent-ink: #6FE0A6;
+      --card: #FFFFFF;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 48px -20px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --page-bg: #0B0C10;
+    --page-bg-2: #131419;
+    --page-ink: #E9EAEE;
+    --page-muted: #9497A6;
+    --page-line: #262832;
+    --accent: #34C77B;
+    --accent-ink: #6FE0A6;
+    --card: #FFFFFF;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 48px -20px rgba(0, 0, 0, 0.6);
+  }
+
+  :root[data-theme="light"] {
+    --page-bg: #EEF0F3;
+    --page-bg-2: #E4E7EC;
+    --page-ink: #14151A;
+    --page-muted: #6B7280;
+    --page-line: #D7DAE1;
+    --accent: #1E9E5A;
+    --accent-ink: #0F6E3D;
+    --card: #FFFFFF;
+    --shadow: 0 1px 2px rgba(20, 21, 26, 0.04), 0 24px 48px -20px rgba(20, 21, 26, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at top, var(--page-bg-2), var(--page-bg));
+    color: var(--page-ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .intro {
+    text-align: center;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .eyebrow {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+
+  .intro h1 {
+    font-size: 26px;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .intro p {
+    margin: 0;
+    color: var(--page-muted);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+
+  .mock-badge {
+    display: inline-flex;
+    align-self: center;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(30, 158, 90, 0.12);
+    color: var(--accent-ink);
+    border: 1px solid rgba(30, 158, 90, 0.3);
+  }
+
+  .stage {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ---------- Try-these hint panel (outer chrome, theme-aware) ---------- */
+  .hints {
+    width: 264px;
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    color: #14151A;
+  }
+
+  .hints h2 {
+    font-size: 13px;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6B7280;
+  }
+
+  .hint-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #EEF0F3;
+  }
+
+  .hint-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .hint-query {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #F4F5F7;
+    color: #14151A;
+    width: fit-content;
+  }
+
+  .hint-desc {
+    font-size: 12.5px;
+    color: #6B7280;
+    line-height: 1.5;
+  }
+
+  /* ---------- Phone frame (fixed "screenshot" styling - intentionally not theme-aware, depicting a real device screen) ---------- */
+  .phone-frame {
+    width: 380px;
+    background: #FFFFFF;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    flex-shrink: 0;
+  }
+
+  .onboarding-header {
+    background: #14151A;
+    color: #FFFFFF;
+    padding: 20px 22px 18px;
+  }
+
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  .icon-btn:disabled { opacity: 0.35; cursor: default; }
+  .icon-btn:not(:disabled):hover { background: rgba(255, 255, 255, 0.18); }
+
+  .onboarding-header h1 {
+    font-size: 21px;
+    margin: 0 0 4px;
+  }
+
+  .onboarding-header .subtitle {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 0 16px;
+  }
+
+  .stepper {
+    display: flex;
+    gap: 8px;
+  }
+
+  .step { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+
+  .step-label {
+    font-size: 9.5px;
+    color: rgba(255, 255, 255, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .step-label.active { color: #FFFFFF; }
+
+  .step-bar {
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .step-bar.done { background: var(--accent, #1E9E5A); }
+
+  .onboarding-card {
+    padding: 22px;
+    min-height: 420px;
+  }
+
+  .field {
+    display: block;
+    font-size: 12px;
+    color: #6B7280;
+    margin-bottom: 12px;
+  }
+
+  .field input {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 10px 12px;
+    border: 1px solid #D7DAE1;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #14151A;
+    background: #FFFFFF;
+    font-family: inherit;
+  }
+
+  .field input:focus { outline: none; border-color: #1E9E5A; }
+
+  .field input:disabled {
+    background: #F3F4F6;
+    color: #9CA3AF;
+  }
+
+  .field-hint {
+    font-size: 11px;
+    color: #6B7280;
+    margin: -8px 0 14px;
+  }
+
+  .field-hint.warn { color: #B45309; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .row-with-btn {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .row-with-btn .field { flex: 1; margin-bottom: 0; }
+
+  .btn {
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 11px 16px;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    background: #14151A;
+    color: #FFFFFF;
+    width: 100%;
+  }
+
+  .btn-primary:disabled { background: #CBD0D8; cursor: not-allowed; }
+  .btn-primary:not(:disabled):hover { background: #26272E; }
+
+  .btn-secondary {
+    background: #FFFFFF;
+    color: #14151A;
+    border: 1px solid #D7DAE1;
+    white-space: nowrap;
+    height: fit-content;
+  }
+
+  .btn-secondary:hover { border-color: #9CA3AF; }
+
+  .btn-link {
+    background: none;
+    border: none;
+    color: #0F6E3D;
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+    padding: 4px 0;
+    font-family: inherit;
+  }
+
+  .notice {
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+    background: #FFFBEB;
+    color: #92400E;
+    border: 1px solid #FDE68A;
+    line-height: 1.5;
+  }
+
+  .pincode-confirm {
+    color: #0F6E3D;
+    font-size: 13px;
+    font-weight: 600;
+    margin: -6px 0 12px;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    padding: 48px 0 0;
+    color: #6B7280;
+    font-size: 14px;
+  }
+
+  .editor-hint {
+    color: #6B7280;
+    font-size: 12px;
+    margin: 0 0 16px;
+  }
+
+  .confirmed-note {
+    color: #0F6E3D;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+
+  /* ---------- Search sheet overlay ---------- */
+  .sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 17, 21, 0.55);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .sheet-overlay.open { display: flex; }
+
+  @keyframes sheet-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .sheet {
+    background: #FFFFFF;
+    width: 100%;
+    max-width: 380px;
+    height: 88vh;
+    max-height: 640px;
+    border-radius: 22px 22px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet { animation: sheet-up 0.22s ease; }
+  }
+
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #EEF0F3;
+    flex-shrink: 0;
+  }
+
+  .sheet-header .icon-btn { background: #F3F4F6; color: #14151A; }
+  .sheet-header .icon-btn:hover { background: #E5E7EB; }
+
+  .sheet-title { font-size: 12px; color: #6B7280; }
+  .sheet-office-name { font-size: 16px; font-weight: 700; color: #14151A; }
+
+  .search-row {
+    padding: 12px 18px 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-bar {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #D7DAE1;
+    border-radius: 999px;
+    padding: 11px 16px;
+    background: #F3F4F6;
+    min-width: 0;
+  }
+
+  .search-bar input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 14px;
+    color: #14151A;
+    font-family: inherit;
+  }
+
+  .search-bar input:focus { outline: none; }
+
+  .search-area-cta {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    background: #FFFFFF;
+    border: 1px solid #D7DAE1;
+    border-radius: 999px;
+    padding: 11px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    color: #14151A;
+    flex-shrink: 0;
+    font-family: inherit;
+  }
+
+  .search-area-cta.show { display: flex; }
+  .search-area-cta:hover { border-color: #9CA3AF; }
+
+  .suggestion-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    background: #FFFFFF;
+    border: 1px solid #D7DAE1;
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #14151A;
+    font-family: inherit;
+  }
+
+  .suggestion-item:hover { border-color: #9CA3AF; }
+  .suggestion-icon { font-size: 17px; flex-shrink: 0; }
+  .suggestion-label { flex: 1; }
+
+  .chip {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #F3F4F6;
+    color: #6B7280;
+    white-space: nowrap;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .chip-office { background: rgba(30, 158, 90, 0.12); color: #0F6E3D; }
+
+  .sheet-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    padding: 24px 8px 0;
+    color: #6B7280;
+    font-size: 13.5px;
+  }
+
+  .muted { color: #6B7280; font-size: 13px; text-align: center; margin-top: 40px; }
+
+  a { color: inherit; }
+
+  @media (max-width: 700px) {
+    .stage { flex-direction: column-reverse; align-items: center; }
+    .hints { width: 100%; max-width: 380px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="wrap">
+    <div class="intro">
+      <span class="eyebrow">Career Info → Office Address</span>
+      <h1>Office Address Autofill — Prototype</h1>
+      <p>
+        A standalone, click-through version of the Places-Autocomplete-prefill flow — no server, no build step,
+        works fully offline. Every result below comes from a small mock dataset baked into this page, not a real
+        Google Places call.
+      </p>
+      <span class="mock-badge">● Mock data only — no live API calls</span>
+    </div>
+
+    <div class="stage">
+      <div class="hints">
+        <h2>Try these</h2>
+        <div class="hint-row">
+          <span class="hint-query">Che</span>
+          <span class="hint-desc">One confirmed office (CheQ) — every field but Line 1 locks once picked.</span>
+        </div>
+        <div class="hint-row">
+          <span class="hint-query">Vantage</span>
+          <span class="hint-desc">Four branches, closest labeled — pick one directly, no extra screen.</span>
+        </div>
+        <div class="hint-row">
+          <span class="hint-query">Koramangala</span>
+          <span class="hint-desc">Area-only match — Line 2/3 stay mostly empty, a notice explains why.</span>
+        </div>
+        <div class="hint-row">
+          <span class="hint-query">Acme Corp</span>
+          <span class="hint-desc">No match — "Search area" sits right next to the bar, manual entry always works.</span>
+        </div>
+        <div class="hint-row">
+          <span class="hint-query">Xy</span>
+          <span class="hint-desc">Under 3 characters — the mock Autocomplete withholds results on purpose.</span>
+        </div>
+      </div>
+
+      <div class="phone-frame">
+        <div class="onboarding-header">
+          <div class="header-row">
+            <button class="icon-btn" id="back-btn" aria-label="Back" disabled>←</button>
+            <button class="icon-btn" aria-label="Help">?</button>
+          </div>
+          <h1 id="screen-title">Add your company details</h1>
+          <p class="subtitle" id="screen-subtitle">To know your professional side a little better</p>
+          <div class="stepper">
+            <div class="step"><span class="step-label active">Personal Info</span><span class="step-bar done"></span></div>
+            <div class="step"><span class="step-label active">Contact Info</span><span class="step-bar done"></span></div>
+            <div class="step"><span class="step-label active">Career Info</span><span class="step-bar done"></span></div>
+            <div class="step"><span class="step-label">Verification</span><span class="step-bar"></span></div>
+          </div>
+        </div>
+
+        <div class="onboarding-card" id="card"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-overlay" role="dialog" aria-modal="true">
+    <div class="sheet">
+      <div class="sheet-header">
+        <button class="icon-btn" id="sheet-close-btn" aria-label="Close">←</button>
+        <div>
+          <div class="sheet-title">Search office or area</div>
+        </div>
+      </div>
+      <div class="search-row">
+        <div class="search-bar">
+          <span aria-hidden="true">🔍</span>
+          <input id="sheet-input" placeholder="Search office name or area" autocomplete="off" />
+        </div>
+        <button class="search-area-cta" id="search-area-cta">📍 Search area</button>
+      </div>
+      <div class="suggestion-list" id="suggestion-list"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================= Mock data ============================= */
+  // Same shape and handling as the real harness's backend/src/data/fixtures.json
+  // + backend/src/lib/mockSearch.js (listSuggestions) + ranker.js (haversine) +
+  // frontend/src/lib/addressLineConfig.js (Line 2/3 split) - just collapsed into
+  // one file since there's no server here to split client/server across.
+
+  var REFERENCE_LOCATION = { lat: 12.9352, lng: 77.6245 }; // "user's current address", Koramangala-ish
+
+  var FIXTURES = [
+    {
+      key: "cheq",
+      kind: "office",
+      names: ["CheQ Digital Private Limited", "CheQ", "CheQ Digital", "AKR Tech Park"],
+      candidates: [
+        {
+          placeId: "cheq-1",
+          name: "CheQ Digital Private Limited",
+          lat: 12.8919, lng: 77.6424,
+          components: {
+            subpremise: "BHIVE Workspace, 1st Floor",
+            premise: "AKR Tech Park",
+            street_number: "7",
+            route: "Kundalahalli Road",
+            sublocality_level_1: "Mahadevapura",
+            locality: "Bengaluru",
+            administrative_area_level_1: "Karnataka",
+            postal_code: "560048",
+          },
+        },
+      ],
+    },
+    {
+      key: "vantage",
+      kind: "office",
+      names: ["Vantage Corp", "Vantage", "Vantage Corporate Office"],
+      candidates: [
+        {
+          placeId: "vantage-indiranagar",
+          name: "Vantage Corp (Indiranagar Branch)",
+          lat: 12.9716, lng: 77.6412,
+          components: {
+            subpremise: "6th Floor", premise: "Vantage Corp", street_number: "100",
+            route: "100 Feet Road", sublocality_level_1: "Indiranagar",
+            locality: "Bengaluru", administrative_area_level_1: "Karnataka", postal_code: "560038",
+          },
+        },
+        {
+          placeId: "vantage-electroniccity",
+          name: "Vantage Corp (Electronic City Branch)",
+          lat: 12.8452, lng: 77.6602,
+          components: {
+            subpremise: "Tower B, 4th Floor", premise: "Vantage Corp", street_number: "9",
+            route: "Hosur Road", sublocality_level_1: "Electronic City",
+            locality: "Bengaluru", administrative_area_level_1: "Karnataka", postal_code: "560100",
+          },
+        },
+        {
+          placeId: "vantage-koramangala",
+          name: "Vantage Corp (Koramangala Branch)",
+          lat: 12.9279, lng: 77.6271,
+          components: {
+            subpremise: "2nd Floor", premise: "Vantage Corp", street_number: "14",
+            route: "80 Feet Road", sublocality_level_1: "Koramangala",
+            locality: "Bengaluru", administrative_area_level_1: "Karnataka", postal_code: "560095",
+          },
+        },
+        {
+          placeId: "vantage-whitefield",
+          name: "Vantage Corp (Whitefield Branch)",
+          lat: 12.9698, lng: 77.7500,
+          components: {
+            subpremise: "3rd Floor", premise: "Vantage Corp", street_number: "55",
+            route: "Whitefield Main Road", sublocality_level_1: "Whitefield",
+            locality: "Bengaluru", administrative_area_level_1: "Karnataka", postal_code: "560066",
+          },
+        },
+      ],
+    },
+    {
+      key: "area-koramangala",
+      kind: "area",
+      names: ["Koramangala", "Koramangala, Bengaluru"],
+      candidates: [{
+        placeId: "area-koramangala-1",
+        name: "Koramangala, Bengaluru",
+        lat: 12.9352, lng: 77.6271,
+        components: {
+          sublocality_level_1: "Koramangala", locality: "Bengaluru",
+          administrative_area_level_1: "Karnataka", postal_code: "560034",
+        },
+      }],
+    },
+    {
+      key: "area-whitefield",
+      kind: "area",
+      names: ["Whitefield", "Whitefield, Bengaluru"],
+      candidates: [{
+        placeId: "area-whitefield-1",
+        name: "Whitefield, Bengaluru",
+        lat: 12.9698, lng: 77.7500,
+        components: {
+          sublocality_level_1: "Whitefield", locality: "Bengaluru",
+          administrative_area_level_1: "Karnataka", postal_code: "560066",
+        },
+      }],
+    },
+    {
+      key: "area-indiranagar",
+      kind: "area",
+      names: ["Indiranagar", "Indiranagar, Bengaluru"],
+      candidates: [{
+        placeId: "area-indiranagar-1",
+        name: "Indiranagar, Bengaluru",
+        lat: 12.9716, lng: 77.6412,
+        components: {
+          sublocality_level_1: "Indiranagar", locality: "Bengaluru",
+          administrative_area_level_1: "Karnataka", postal_code: "560038",
+        },
+      }],
+    },
+    {
+      key: "area-electronic-city",
+      kind: "area",
+      names: ["Electronic City", "Electronic City, Bengaluru"],
+      candidates: [{
+        placeId: "area-electroniccity-1",
+        name: "Electronic City, Bengaluru",
+        lat: 12.8452, lng: 77.6602,
+        components: {
+          sublocality_level_1: "Electronic City", locality: "Bengaluru",
+          administrative_area_level_1: "Karnataka", postal_code: "560100",
+        },
+      }],
+    },
+    {
+      key: "area-marathahalli",
+      kind: "area",
+      names: ["Marathahalli", "Marathahalli, Bengaluru"],
+      candidates: [{
+        placeId: "area-marathahalli-1",
+        name: "Marathahalli, Bengaluru",
+        lat: 12.9591, lng: 77.6974,
+        components: {
+          sublocality_level_1: "Marathahalli", locality: "Bengaluru",
+          administrative_area_level_1: "Karnataka", postal_code: "560037",
+        },
+      }],
+    },
+  ];
+
+  var MIN_QUERY_LENGTH = 3;
+
+  /* =================== Ranker (ranker.js / sort_office_addresses.py port) =================== */
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    var R = 6371.0;
+    var toRad = function (d) { return (d * Math.PI) / 180; };
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function rankByDistance(ref, candidates) {
+    return candidates
+      .map(function (c) { return Object.assign({}, c, { distanceKm: haversineKm(ref.lat, ref.lng, c.lat, c.lng) }); })
+      .sort(function (a, b) { return a.distanceKm - b.distanceKm; });
+  }
+
+  /* =================== Mocked Autocomplete (mockSearch.js:listSuggestions) =================== */
+  function listSuggestions(query) {
+    var q = (query || "").trim().toLowerCase();
+    if (q.length < MIN_QUERY_LENGTH) return [];
+
+    var matches = FIXTURES.filter(function (e) {
+      return e.names.some(function (n) { return n.toLowerCase().indexOf(q) !== -1; });
+    });
+
+    var out = [];
+    matches.forEach(function (e) {
+      if (e.candidates.length > 1) {
+        // Multi-branch companies expand inline, closest first (TC-1) - the
+        // same fix applied to the real app: every branch is its own row,
+        // no second "select your office" screen.
+        var ranked = rankByDistance(REFERENCE_LOCATION, e.candidates);
+        ranked.forEach(function (c, i) {
+          out.push({ key: e.key, kind: e.kind, label: c.name, candidate: c, closest: i === 0 });
+        });
+      } else {
+        out.push({ key: e.key, kind: e.kind, label: e.names[0], candidate: e.candidates[0], closest: false });
+      }
+    });
+    return out;
+  }
+
+  /* =================== Address Line config (addressLineConfig.js) =================== */
+  var LINE2_TYPES = ["subpremise", "premise", "street_number"];
+  var LINE3_TYPES = ["route"];
+
+  function buildAddressLines(components) {
+    components = components || {};
+    var line2 = LINE2_TYPES.map(function (t) { return components[t]; }).filter(Boolean).join(", ");
+    var line3 = LINE3_TYPES.map(function (t) { return components[t]; }).filter(Boolean).join(", ");
+    return {
+      addressLine2: line2,
+      addressLine3: line3,
+      cityDistrict: components.locality || "",
+      state: components.administrative_area_level_1 || "",
+      pincode: components.postal_code || "",
+    };
+  }
+
+  var EMPTY_FIELDS = { addressLine2: "", addressLine3: "", cityDistrict: "", state: "", pincode: "" };
+
+  /* ============================= App state ============================= */
+  var state = {
+    step: "company", // "company" | "address"
+    officeName: "",
+    areaLabel: "",
+    addressLine1: "",
+    hasResolved: false,
+    showManual: false,
+    isAreaPick: false,
+    confirmed: false,
+    fields: Object.assign({}, EMPTY_FIELDS),
+  };
+
+  var sheetState = {
+    open: false,
+    seed: "",
+    query: "",
+    suggestions: [],
+    searched: false,
+  };
+
+  var debounceTimer = null;
+
+  /* ============================= DOM refs ============================= */
+  var $card = document.getElementById("card");
+  var $title = document.getElementById("screen-title");
+  var $subtitle = document.getElementById("screen-subtitle");
+  var $backBtn = document.getElementById("back-btn");
+  var $sheetOverlay = document.getElementById("sheet-overlay");
+  var $sheetInput = document.getElementById("sheet-input");
+  var $suggestionList = document.getElementById("suggestion-list");
+  var $searchAreaCta = document.getElementById("search-area-cta");
+  var $sheetCloseBtn = document.getElementById("sheet-close-btn");
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  /* ============================= Sheet control ============================= */
+  function openSheet(seed) {
+    sheetState.open = true;
+    sheetState.seed = seed || "";
+    sheetState.query = seed || "";
+    sheetState.suggestions = [];
+    sheetState.searched = false;
+    renderSheet();
+    $sheetOverlay.classList.add("open");
+    setTimeout(function () { $sheetInput.focus(); $sheetInput.select(); }, 20);
+    scheduleSearch();
+  }
+
+  function closeSheet() {
+    sheetState.open = false;
+    $sheetOverlay.classList.remove("open");
+  }
+
+  function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () {
+      var q = sheetState.query.trim();
+      sheetState.searched = q.length >= MIN_QUERY_LENGTH;
+      sheetState.suggestions = sheetState.searched ? listSuggestions(q) : [];
+      renderSheet();
+    }, 200);
+  }
+
+  function renderSheet() {
+    $sheetInput.value = sheetState.query;
+    var showEmpty = sheetState.searched && sheetState.suggestions.length === 0;
+    $searchAreaCta.classList.toggle("show", showEmpty);
+
+    var html = "";
+    if (showEmpty) {
+      html += '<div class="sheet-empty-state">' +
+        '<p>We couldn&rsquo;t find &ldquo;' + escapeHtml(sheetState.query) + '&rdquo; on Google Maps under that name.</p>' +
+        '<button type="button" class="btn-link" id="manual-fallback-link">Enter address manually instead</button>' +
+        '</div>';
+    }
+    sheetState.suggestions.forEach(function (s, i) {
+      var icon = s.kind === "area" ? "📍" : "🏢";
+      var chip = s.closest
+        ? '<span class="chip chip-office">Closest</span>'
+        : '<span class="chip' + (s.kind === "area" ? "" : " chip-office") + '">' + (s.kind === "area" ? "Area" : "Office") + "</span>";
+      html += '<button type="button" class="suggestion-item" data-suggestion-index="' + i + '">' +
+        '<span class="suggestion-icon" aria-hidden="true">' + icon + "</span>" +
+        '<span class="suggestion-label">' + escapeHtml(s.label) + "</span>" +
+        chip +
+        "</button>";
+    });
+    $suggestionList.innerHTML = html;
+
+    if (showEmpty) {
+      document.getElementById("manual-fallback-link").addEventListener("click", function () {
+        resolve(null, null);
+      });
+    }
+    Array.prototype.forEach.call($suggestionList.querySelectorAll(".suggestion-item"), function (btn) {
+      btn.addEventListener("click", function () {
+        var s = sheetState.suggestions[Number(btn.getAttribute("data-suggestion-index"))];
+        resolve(s.candidate, { label: s.label, kind: s.kind });
+      });
+    });
+  }
+
+  function searchAreaInstead() {
+    sheetState.query = "";
+    sheetState.suggestions = [];
+    sheetState.searched = false;
+    renderSheet();
+    $sheetInput.focus();
+  }
+
+  /* ============================= Resolving a pick ============================= */
+  function resolve(candidate, meta) {
+    closeSheet();
+    state.confirmed = false;
+    if (!candidate) {
+      // No match, or the user chose to skip straight to manual entry - never
+      // a dead end. Address Line 1 is left untouched if something was
+      // already typed there.
+      state.showManual = true;
+      state.hasResolved = false;
+      state.isAreaPick = false;
+      state.areaLabel = "";
+      state.fields = Object.assign({}, EMPTY_FIELDS);
+      renderApp();
+      return;
+    }
+    // Office name (and Address Line 1) are independent, user-owned state -
+    // a location pick only ever touches Line 2/3 + city/state/pincode.
+    state.fields = buildAddressLines(candidate.components);
+    state.isAreaPick = meta && meta.kind === "area";
+    state.areaLabel = state.isAreaPick ? meta.label : "";
+    state.hasResolved = true;
+    state.showManual = false;
+    renderApp();
+  }
+
+  /* ============================= Screens ============================= */
+  function goToCompanyDetails() {
+    state.step = "company";
+    renderApp();
+  }
+
+  function continueFromCompanyDetails(companyName) {
+    state.officeName = companyName;
+    state.areaLabel = "";
+    state.addressLine1 = "";
+    state.step = "address";
+    state.hasResolved = false;
+    state.showManual = false;
+    state.confirmed = false;
+    state.isAreaPick = false;
+    state.fields = Object.assign({}, EMPTY_FIELDS);
+    renderApp();
+    openSheet(companyName);
+  }
+
+  function manualStart() {
+    state.showManual = true;
+    state.hasResolved = false;
+    state.confirmed = false;
+    state.isAreaPick = false;
+    state.areaLabel = "";
+    state.fields = Object.assign({}, EMPTY_FIELDS);
+    renderApp();
+  }
+
+  function updateField(key, value) {
+    state.fields[key] = value;
+  }
+
+  /* ============================= Render: Company Details ============================= */
+  function renderCompanyDetails() {
+    $title.textContent = "Add your company details";
+    $subtitle.textContent = "To know your professional side a little better";
+    $backBtn.disabled = true;
+
+    $card.innerHTML =
+      '<label class="field">Company Name<input id="f-company" placeholder="e.g. CheQ Digital Private Limited" /></label>' +
+      '<label class="field">Designation<input id="f-designation" placeholder="e.g. Software Engineer" /></label>' +
+      '<label class="field">Work Email<input id="f-email" type="email" placeholder="you@company.com" /></label>' +
+      '<label class="field">Years of Experience<input id="f-exp" placeholder="e.g. 3" /></label>' +
+      '<button type="button" class="btn btn-primary" id="continue-btn" disabled>Continue</button>';
+
+    var $company = document.getElementById("f-company");
+    var $continueBtn = document.getElementById("continue-btn");
+    $company.addEventListener("input", function () {
+      $continueBtn.disabled = $company.value.trim().length === 0;
+    });
+    $continueBtn.addEventListener("click", function () {
+      if ($company.value.trim()) continueFromCompanyDetails($company.value.trim());
+    });
+  }
+
+  /* ============================= Render: Address screen ============================= */
+  function renderAddressScreen() {
+    $title.textContent = "Add your office address";
+    $subtitle.textContent = "To verify your employment details";
+    $backBtn.disabled = false;
+
+    var showEditor = state.hasResolved || state.showManual;
+
+    if (!showEditor) {
+      $card.innerHTML =
+        '<div class="empty-state">' +
+        '<p>Looking for the office address for &ldquo;' + escapeHtml(state.officeName) + '&rdquo;.</p>' +
+        '<button type="button" class="btn btn-primary" id="search-location-btn" style="width:auto;padding-left:24px;padding-right:24px;">Search location</button>' +
+        '<button type="button" class="btn-link" id="manual-start-btn">+ Enter address manually</button>' +
+        "</div>";
+      document.getElementById("search-location-btn").addEventListener("click", function () { openSheet(state.officeName); });
+      document.getElementById("manual-start-btn").addEventListener("click", manualStart);
+      return;
+    }
+
+    var fieldsReadOnly = state.hasResolved;
+    var canConfirm = state.addressLine1.trim().length > 0;
+    var f = state.fields;
+
+    var html = "";
+    html += "<h3 style='margin:0 0 4px;'>" + (state.showManual ? "Enter your office address" : "Confirm your address") + "</h3>";
+    html += '<p class="editor-hint">' + (fieldsReadOnly
+      ? "Address Line 1 is yours to fill in — the rest came from your selected location and can&rsquo;t be edited here."
+      : "No location selected yet — every field below is yours to fill in.") + "</p>";
+
+    html += '<label class="field">Office name<input id="f-officename" value="' + escapeHtml(state.officeName) + '" /></label>';
+
+    if (state.isAreaPick) {
+      html += '<div class="row-with-btn">' +
+        '<label class="field">Area<input id="f-arealabel" value="' + escapeHtml(state.areaLabel) + '" /></label>' +
+        '<button type="button" class="btn btn-secondary" id="search-area-btn">Search area</button>' +
+        "</div>";
+      html += '<div class="notice">We could only find the general area for this office — Address Line 2 and 3 may be incomplete. Add the exact floor, building, or tower in Address Line 1 below.</div>';
+    }
+
+    html += '<label class="field">Address Line 1<input id="f-line1" placeholder="e.g. 2nd Floor, Tower B" value="' + escapeHtml(state.addressLine1) + '" /></label>';
+    html += '<p class="field-hint">Always yours to fill in — add your floor number, building, or tower name here.</p>';
+
+    html += '<label class="field">Address Line 2<input id="f-line2" value="' + escapeHtml(f.addressLine2) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>";
+    html += '<label class="field">Address Line 3<input id="f-line3" value="' + escapeHtml(f.addressLine3) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>";
+    html += '<label class="field">Office Pin Code<input id="f-pincode" value="' + escapeHtml(f.pincode) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>";
+
+    if (f.cityDistrict && f.state) {
+      html += '<p class="pincode-confirm">✓ ' + escapeHtml(f.cityDistrict) + ", " + escapeHtml(f.state) + "</p>";
+    }
+
+    html += '<div class="field-row">' +
+      '<label class="field">City/District<input id="f-city" value="' + escapeHtml(f.cityDistrict) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>" +
+      '<label class="field">State<input id="f-state" value="' + escapeHtml(f.state) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>" +
+      "</div>";
+
+    html += '<button type="button" class="btn btn-primary" id="confirm-btn"' + (canConfirm ? "" : " disabled") + ">Confirm and Continue</button>";
+    if (!canConfirm) html += '<p class="field-hint warn">Add Address Line 1 to continue.</p>';
+    if (state.confirmed) html += '<p class="confirmed-note">✓ Address confirmed (prototype — no further step).</p>';
+
+    $card.innerHTML = html;
+
+    document.getElementById("f-officename").addEventListener("input", function (e) { state.officeName = e.target.value; });
+    if (state.isAreaPick) {
+      document.getElementById("f-arealabel").addEventListener("input", function (e) { state.areaLabel = e.target.value; });
+      document.getElementById("search-area-btn").addEventListener("click", function () { openSheet(state.areaLabel); });
+    }
+    document.getElementById("f-line1").addEventListener("input", function (e) {
+      state.addressLine1 = e.target.value;
+      renderAddressScreen();
+      var el = document.getElementById("f-line1");
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+    ["line2", "line3", "pincode", "city", "state"].forEach(function (key) {
+      var fieldKey = key === "city" ? "cityDistrict" : key === "line2" ? "addressLine2" : key === "line3" ? "addressLine3" : key;
+      var el = document.getElementById("f-" + key);
+      if (el && !fieldsReadOnly) el.addEventListener("input", function (e) { updateField(fieldKey, e.target.value); });
+    });
+    var $confirmBtn = document.getElementById("confirm-btn");
+    if ($confirmBtn) $confirmBtn.addEventListener("click", function () {
+      if (canConfirm) { state.confirmed = true; renderAddressScreen(); }
+    });
+  }
+
+  function renderApp() {
+    if (state.step === "company") renderCompanyDetails();
+    else renderAddressScreen();
+  }
+
+  /* ============================= Wire static controls ============================= */
+  $backBtn.addEventListener("click", function () { if (!$backBtn.disabled) goToCompanyDetails(); });
+  $sheetCloseBtn.addEventListener("click", closeSheet);
+  $searchAreaCta.addEventListener("click", searchAreaInstead);
+  $sheetInput.addEventListener("input", function (e) {
+    sheetState.query = e.target.value;
+    scheduleSearch();
+  });
+
+  renderApp();
+})();
+</script>
+</body>
+</html>

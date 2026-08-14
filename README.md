@@ -2,6 +2,8 @@
 
 Local harness for validating the Office Address Autofill V2 ranking, formatting, and confidence-scoring logic against mock data (and now, optionally, real Google Places data). See `CLAUDE.md` for full PM/context, `docs/PRD_Office_Address_Autofill_V2.md` for the current, as-built product spec (flow, Google API integration split, field model, test cases, open questions), `docs/PRD_Places_Autocomplete_Prefill.md` for the formal FR/AC-numbered spec behind the Career-Info-prefill mechanic and the field-editability rule, and `docs/PRD_Office_Address_Autofill.md` for the original pre-build draft it all supersedes.
 
+**Want to click through the flow without running `npm install`/`npm run dev` at all?** Open `docs/office_address_autofill_prototype.html` directly in any browser — it's a single self-contained file (no server, no build step, works offline) that ports the same Career-Info-to-address-confirm flow, mock data, and field-editability rules into plain HTML/CSS/JS. Useful for demos or sharing with people who don't have Node set up; the full app below is still the source of truth for anything that needs to keep evolving.
+
 ## Run it
 
 ```
