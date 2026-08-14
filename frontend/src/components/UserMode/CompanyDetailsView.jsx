@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+// 14 designations + "Other" - a spread of seniority (Team Lead -> VP) plus
+// explicit self-employed coverage (Business Owner/Proprietor, Consultant),
+// since this app serves both salaried and self-employed applicants (see
+// CLAUDE.md's Places-Autocomplete-prefill PRD note).
 const DESIGNATIONS = [
   "Product Designer",
   "Software Engineer",
@@ -7,6 +11,14 @@ const DESIGNATIONS = [
   "Business Analyst",
   "Sales Executive",
   "Operations Manager",
+  "Marketing Manager",
+  "HR Manager",
+  "Finance Manager",
+  "Team Lead",
+  "Director",
+  "Vice President",
+  "Business Owner / Proprietor",
+  "Consultant",
   "Other",
 ];
 

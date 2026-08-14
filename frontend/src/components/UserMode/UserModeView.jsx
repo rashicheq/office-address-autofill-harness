@@ -42,9 +42,19 @@ const HEADER_COPY = {
 // is the only thing the user can type. In full manual entry (showManual,
 // no Places data exists at all) every field, including city/state, is a
 // normal editable input instead - see `fieldsReadOnly` below.
+//
+// "Selected location" (2026-08, Rashi): the confirm screen's top field no
+// longer echoes back `officeName` (the Career Info company name) - it shows
+// `selectedLocation`, the actual Places result's own name (e.g. "CheQ
+// Digital Private Limited", "Vantage Corp (Koramangala Branch)", or an
+// area's own name like "Koramangala, Bengaluru"), since that's the thing
+// worth verifying against, not the original search query. `officeName`
+// still exists internally - it seeds the search sheet and the pre-resolve
+// empty-state text - it just isn't rendered as its own row here anymore.
 export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [step, setStep] = useState("company"); // "company" | "address"
   const [officeName, setOfficeName] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
   const [areaLabel, setAreaLabel] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [showSearchSheet, setShowSearchSheet] = useState(false);
@@ -57,12 +67,12 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
   const isBlocked = dataSource === "live" && !liveApiConfigured;
 
-  // Office name is a plain editable field once resolved - no re-search
-  // action of its own. Area still gets a "Search area" button that reopens
-  // the sheet seeded with whichever area is currently selected, and the
-  // very first search (before anything is resolved) seeds from the office
-  // name (see handleSheetResolve for how area vs. office picks are told
-  // apart).
+  // Office name has no on-screen re-search action of its own (it isn't
+  // rendered as a field at all anymore - see the "Selected location" note
+  // above); it only lives on as the seed for the very first search, before
+  // anything is resolved. Area still gets its own "Search area" button that
+  // reopens the sheet seeded with whichever area is currently selected (see
+  // handleSheetResolve for how area vs. office picks are told apart).
   const openSheetFor = (seed) => {
     setSheetSeed(seed);
     setShowSearchSheet(true);
@@ -70,6 +80,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
   const handleCompanyDetailsContinue = ({ companyName }) => {
     setOfficeName(companyName);
+    setSelectedLocation("");
     setAreaLabel("");
     setAddressLine1("");
     setStep("address");
@@ -87,6 +98,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setShowManual(false);
     setConfirmed(false);
     setIsAreaPick(false);
+    setSelectedLocation("");
     setAreaLabel("");
     setAddressLine1("");
     setFields(EMPTY_FIELDS);
@@ -100,20 +112,25 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
       // never a dead end, just an empty editable form (TC-3/TC-4 path).
       // Address Line 1 is left untouched here too - if the user had already
       // typed something before pivoting to manual, there's no reason to
-      // throw it away.
+      // throw it away. Selected location IS cleared, though - it's derived
+      // from a Places pick, and there's no pick to derive it from here.
       setShowManual(true);
       setHasResolved(false);
       setIsAreaPick(false);
+      setSelectedLocation("");
       setAreaLabel("");
       setFields(EMPTY_FIELDS);
       return;
     }
-    // Office name is Career Info context (the company you work for) - it
-    // stays fixed regardless of which specific office/area you pick for it.
-    // Address Line 1 is the same kind of independent, user-owned state - a
-    // location pick only ever touches Line 2/3 + city/state/pincode, never
-    // Line 1, so re-searching never throws away floor/building detail the
-    // user already typed.
+    // Office name is Career Info context (the company you work for) - kept
+    // internally to re-seed the search sheet, but no longer shown on this
+    // screen (Rashi, 2026-08): the confirm screen shows the actual place the
+    // user picked instead, since that's more useful to verify against than
+    // echoing back the original search query. Address Line 1 is independent,
+    // user-owned state - a location pick only ever touches Line 2/3 +
+    // city/state/pincode + selectedLocation, never Line 1, so re-searching
+    // never throws away floor/building detail the user already typed.
+    setSelectedLocation(result.name || "");
     setFields(buildAddressLines(result.addressComponents));
     setIsAreaPick(meta?.kind === "area");
     setAreaLabel(meta?.kind === "area" ? meta?.label || "" : "");
@@ -126,6 +143,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setHasResolved(false);
     setConfirmed(false);
     setIsAreaPick(false);
+    setSelectedLocation("");
     setAreaLabel("");
     setFields(EMPTY_FIELDS);
   };
@@ -221,8 +239,12 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                 </p>
 
                 <label className="field">
-                  Office name
-                  <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} />
+                  Selected location
+                  <input
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                    placeholder="e.g. your company or building name"
+                  />
                 </label>
 
                 {isAreaPick && (

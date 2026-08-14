@@ -264,7 +264,8 @@
     margin-bottom: 12px;
   }
 
-  .field input {
+  .field input,
+  .field select {
     display: block;
     width: 100%;
     margin-top: 4px;
@@ -277,7 +278,8 @@
     font-family: inherit;
   }
 
-  .field input:focus { outline: none; border-color: #1E9E5A; }
+  .field input:focus,
+  .field select:focus { outline: none; border-color: #1E9E5A; }
 
   .field input:disabled {
     background: #F3F4F6;
@@ -852,6 +854,7 @@
   var state = {
     step: "company", // "company" | "address"
     officeName: "",
+    selectedLocation: "",
     areaLabel: "",
     addressLine1: "",
     hasResolved: false,
@@ -969,17 +972,23 @@
     if (!candidate) {
       // No match, or the user chose to skip straight to manual entry - never
       // a dead end. Address Line 1 is left untouched if something was
-      // already typed there.
+      // already typed there. selectedLocation IS cleared - it's derived
+      // from a Places pick, and there's no pick to derive it from here.
       state.showManual = true;
       state.hasResolved = false;
       state.isAreaPick = false;
+      state.selectedLocation = "";
       state.areaLabel = "";
       state.fields = Object.assign({}, EMPTY_FIELDS);
       renderApp();
       return;
     }
-    // Office name (and Address Line 1) are independent, user-owned state -
-    // a location pick only ever touches Line 2/3 + city/state/pincode.
+    // Office name is kept only to re-seed the search sheet - the confirm
+    // screen shows the actual place the user picked instead (selectedLocation),
+    // since that's more useful to verify against than the original search
+    // query. Address Line 1 is independent, user-owned state - a location
+    // pick only ever touches Line 2/3 + city/state/pincode + selectedLocation.
+    state.selectedLocation = candidate.name || "";
     state.fields = buildAddressLines(candidate.components);
     state.isAreaPick = meta && meta.kind === "area";
     state.areaLabel = state.isAreaPick ? meta.label : "";
@@ -996,6 +1005,7 @@
 
   function continueFromCompanyDetails(companyName) {
     state.officeName = companyName;
+    state.selectedLocation = "";
     state.areaLabel = "";
     state.addressLine1 = "";
     state.step = "address";
@@ -1013,6 +1023,7 @@
     state.hasResolved = false;
     state.confirmed = false;
     state.isAreaPick = false;
+    state.selectedLocation = "";
     state.areaLabel = "";
     state.fields = Object.assign({}, EMPTY_FIELDS);
     renderApp();
@@ -1022,15 +1033,27 @@
     state.fields[key] = value;
   }
 
+  // Mirrors frontend/src/components/UserMode/CompanyDetailsView.jsx's
+  // DESIGNATIONS list exactly - keep the two in sync by hand if either changes.
+  var DESIGNATIONS = [
+    "Product Designer", "Software Engineer", "Product Manager", "Business Analyst",
+    "Sales Executive", "Operations Manager", "Marketing Manager", "HR Manager",
+    "Finance Manager", "Team Lead", "Director", "Vice President",
+    "Business Owner / Proprietor", "Consultant", "Other",
+  ];
+
   /* ============================= Render: Company Details ============================= */
   function renderCompanyDetails() {
     $title.textContent = "Add your company details";
     $subtitle.textContent = "To know your professional side a little better";
     $backBtn.disabled = true;
 
+    var designationOptions = '<option value="">Select Designation</option>' +
+      DESIGNATIONS.map(function (d) { return '<option value="' + escapeHtml(d) + '">' + escapeHtml(d) + "</option>"; }).join("");
+
     $card.innerHTML =
       '<label class="field">Company Name<input id="f-company" placeholder="e.g. CheQ Digital Private Limited" /></label>' +
-      '<label class="field">Designation<input id="f-designation" placeholder="e.g. Software Engineer" /></label>' +
+      '<label class="field">Designation<select id="f-designation">' + designationOptions + "</select></label>" +
       '<label class="field">Work Email<input id="f-email" type="email" placeholder="you@company.com" /></label>' +
       '<label class="field">Years of Experience<input id="f-exp" placeholder="e.g. 3" /></label>' +
       '<button type="button" class="btn btn-primary" id="continue-btn" disabled>Continue</button>';
@@ -1075,7 +1098,7 @@
       ? "Address Line 1 is yours to fill in — the rest came from your selected location and can&rsquo;t be edited here."
       : "No location selected yet — every field below is yours to fill in.") + "</p>";
 
-    html += '<label class="field">Office name<input id="f-officename" value="' + escapeHtml(state.officeName) + '" /></label>';
+    html += '<label class="field">Selected location<input id="f-selectedlocation" placeholder="e.g. your company or building name" value="' + escapeHtml(state.selectedLocation) + '" /></label>';
 
     if (state.isAreaPick) {
       html += '<div class="row-with-btn">' +
@@ -1107,7 +1130,7 @@
 
     $card.innerHTML = html;
 
-    document.getElementById("f-officename").addEventListener("input", function (e) { state.officeName = e.target.value; });
+    document.getElementById("f-selectedlocation").addEventListener("input", function (e) { state.selectedLocation = e.target.value; });
     if (state.isAreaPick) {
       document.getElementById("f-arealabel").addEventListener("input", function (e) { state.areaLabel = e.target.value; });
       document.getElementById("search-area-btn").addEventListener("click", function () { openSheet(state.areaLabel); });
