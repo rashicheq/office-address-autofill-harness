@@ -486,8 +486,6 @@
 
   .chip-office { background: rgba(30, 158, 90, 0.12); color: #0F6E3D; }
 
-  .manual-entry-link { display: block; margin-top: 8px; }
-
   .muted { color: #6B7280; font-size: 13px; text-align: center; margin-top: 40px; }
 
   a { color: inherit; }
@@ -791,25 +789,29 @@
   var EMPTY_FIELDS = { addressLine2: "", addressLine3: "", cityDistrict: "", state: "", pincode: "" };
 
   /* ============================= App state ============================= */
+  // Exactly two screens, full stop (2026-08 correction) - Career Info, then
+  // this one. There's no separate search-only screen or manual-entry mode:
+  // selectedLocation doubles as both the search query box (pre-filled with
+  // officeName on arrival) and the display of whatever's been resolved, and
+  // an unresolved form is simply what "manual entry" already looks like -
+  // every field is a normal input until hasResolved locks the Places-derived
+  // ones. isAreaPick is kept only to drive the sparse-data notice.
   var state = {
     step: "company", // "company" | "address"
     officeName: "",
     selectedLocation: "",
-    areaLabel: "",
     addressLine1: "",
     hasResolved: false,
-    showManual: false,
     isAreaPick: false,
     confirmed: false,
     fields: Object.assign({}, EMPTY_FIELDS),
   };
 
-  // Inline search panel state (2026-08: replaces the old sheetState - no
-  // more overlay, so nothing here needs an "open" flag). Nothing is looked
-  // up until Search is explicitly clicked (or Enter pressed) - that's the
-  // moment the mock Places call fires, so there's no debounce timer either.
-  var searchState = {
-    query: "",
+  // Ephemeral search-UI-only state (results just found / no-match fallback
+  // areas) - not part of the address itself, so kept separate from `state`.
+  // Nothing is looked up until Search is explicitly clicked (or Enter
+  // pressed) - that's the moment the mock Places call fires.
+  var searchUi = {
     phase: "idle", // "idle" | "results"
     suggestions: [],
     fallbackAreas: [],
@@ -827,66 +829,40 @@
     });
   }
 
-  /* ============================= Inline search panel ============================= */
-  // Seeds the panel with whichever value the caller hands in (the office
-  // name on first arrival, or the currently-selected area when reopened via
-  // "Search area") and drops back to the un-searched state - mirrors
-  // startSearch in the real UserModeView.jsx.
-  function startSearch(seed) {
-    state.hasResolved = false;
-    state.showManual = false;
-    searchState.query = seed || "";
-    searchState.phase = "idle";
-    searchState.suggestions = [];
-    searchState.fallbackAreas = [];
-  }
-
-  function handleSearchClick(showManualFieldsBelow) {
-    var q = searchState.query.trim();
+  /* ============================= Office search (inline, beside Selected location) ============================= */
+  function handleSearchClick() {
+    var q = state.selectedLocation.trim();
     if (q.length < MIN_QUERY_LENGTH) return;
-    searchState.suggestions = listSuggestions(q);
-    searchState.fallbackAreas = searchState.suggestions.length === 0 ? listFallbackAreaSuggestions() : [];
-    searchState.phase = "results";
-    renderSearchPanel(showManualFieldsBelow);
+    searchUi.suggestions = listSuggestions(q);
+    searchUi.fallbackAreas = searchUi.suggestions.length === 0 ? listFallbackAreaSuggestions() : [];
+    searchUi.phase = "results";
+    renderAddressScreen();
   }
 
-  // Not on Google Maps under this name - clear the query and hand focus
-  // straight back to the bar so pivoting to a fresh area search feels like a
+  // Not on Google Maps under this name - clear the box and hand focus
+  // straight back to it so pivoting to a fresh area search feels like a
   // continuation of the same search, not a dead end.
-  function handleSearchAreaInstead(showManualFieldsBelow) {
-    searchState.query = "";
-    searchState.phase = "idle";
-    searchState.suggestions = [];
-    searchState.fallbackAreas = [];
-    renderSearchPanel(showManualFieldsBelow);
-    var el = document.getElementById("search-input");
+  function handleSearchAreaInstead() {
+    state.selectedLocation = "";
+    searchUi.phase = "idle";
+    searchUi.suggestions = [];
+    searchUi.fallbackAreas = [];
+    renderAddressScreen();
+    var el = document.getElementById("f-selectedlocation");
     if (el) el.focus();
   }
 
-  // showManualFieldsBelow: 2026-08 - the panel stays mounted for as long as
-  // nothing has resolved yet, including through manual entry (mirrors
-  // UserModeView.jsx's showSearchPanel), so "Enter address manually" is a
-  // fork you can still search your way back out of. When true, the manual
-  // editor fields (buildEditorHtml) render directly below the search UI and
-  // the "+ Enter address manually" link itself is dropped - it would just
-  // re-trigger resolve(null, null) and wipe whatever's already been typed
-  // into those now-visible fields.
-  function renderSearchPanel(showManualFieldsBelow) {
-    var canSearch = searchState.query.trim().length >= MIN_QUERY_LENGTH;
-    var showResults = searchState.phase === "results" && searchState.suggestions.length > 0;
-    var showNoMatch = searchState.phase === "results" && searchState.suggestions.length === 0;
+  // HTML for the Search button + results/no-match list, inserted directly
+  // after the Selected-location row inside buildEditorHtml() - not a
+  // separate screen or step.
+  function buildSearchUiHtml() {
+    var showResults = searchUi.phase === "results" && searchUi.suggestions.length > 0;
+    var showNoMatch = searchUi.phase === "results" && searchUi.suggestions.length === 0;
 
-    var html = '<div class="inline-search-row">' +
-      '<div class="search-bar">' +
-        '<span aria-hidden="true">🔍</span>' +
-        '<input id="search-input" placeholder="Search office name or area" autocomplete="off" value="' + escapeHtml(searchState.query) + '" />' +
-      '</div>' +
-      '<button type="button" class="btn btn-primary btn-search-cta" id="search-cta-btn"' + (canSearch ? "" : " disabled") + '>Search</button>' +
-      '</div>';
-
+    var html = "";
     if (showResults) {
       html += '<div class="suggestion-list">';
-      searchState.suggestions.forEach(function (s, i) {
+      searchUi.suggestions.forEach(function (s, i) {
         var icon = s.kind === "area" ? "📍" : "🏢";
         var chip = s.closest
           ? '<span class="chip chip-office">Closest</span>'
@@ -901,10 +877,10 @@
     }
 
     if (showNoMatch) {
-      html += '<p class="no-match-note">We couldn&rsquo;t find &ldquo;' + escapeHtml(searchState.query) +
+      html += '<p class="no-match-note">We couldn&rsquo;t find &ldquo;' + escapeHtml(state.selectedLocation) +
         '&rdquo; on Google Maps under that name. Try one of these nearby areas instead:</p>';
       html += '<div class="suggestion-list">';
-      searchState.fallbackAreas.forEach(function (s, i) {
+      searchUi.fallbackAreas.forEach(function (s, i) {
         html += '<button type="button" class="suggestion-item" data-fallback-index="' + i + '">' +
           '<span class="suggestion-icon" aria-hidden="true">📍</span>' +
           '<span class="suggestion-label">' + escapeHtml(s.label) + "</span>" +
@@ -915,34 +891,17 @@
       html += '<button type="button" class="search-area-cta" id="search-area-instead-btn">📍 Search a different area</button>';
     }
 
-    if (showManualFieldsBelow) {
-      html += buildEditorHtml();
-    } else {
-      html += '<button type="button" class="btn-link manual-entry-link" id="manual-entry-link-btn">+ Enter address manually</button>';
-    }
+    return html;
+  }
 
-    $card.innerHTML = html;
-
-    var $input = document.getElementById("search-input");
-    $input.addEventListener("input", function (e) {
-      searchState.query = e.target.value;
-      if (searchState.phase === "results") searchState.phase = "idle";
-      renderSearchPanel(showManualFieldsBelow);
-      var el = document.getElementById("search-input");
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    });
-    $input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") handleSearchClick(showManualFieldsBelow);
-    });
-
-    var $searchBtn = document.getElementById("search-cta-btn");
-    $searchBtn.addEventListener("click", function () { handleSearchClick(showManualFieldsBelow); });
+  function wireSearchUiListeners() {
+    var showResults = searchUi.phase === "results" && searchUi.suggestions.length > 0;
+    var showNoMatch = searchUi.phase === "results" && searchUi.suggestions.length === 0;
 
     if (showResults) {
       Array.prototype.forEach.call($card.querySelectorAll("[data-suggestion-index]"), function (btn) {
         btn.addEventListener("click", function () {
-          var s = searchState.suggestions[Number(btn.getAttribute("data-suggestion-index"))];
+          var s = searchUi.suggestions[Number(btn.getAttribute("data-suggestion-index"))];
           resolve(s.candidate, { label: s.label, kind: s.kind });
         });
       });
@@ -951,52 +910,25 @@
     if (showNoMatch) {
       Array.prototype.forEach.call($card.querySelectorAll("[data-fallback-index]"), function (btn) {
         btn.addEventListener("click", function () {
-          var s = searchState.fallbackAreas[Number(btn.getAttribute("data-fallback-index"))];
+          var s = searchUi.fallbackAreas[Number(btn.getAttribute("data-fallback-index"))];
           resolve(s.candidate, { label: s.label, kind: s.kind });
         });
       });
-      document.getElementById("search-area-instead-btn").addEventListener("click", function () {
-        handleSearchAreaInstead(showManualFieldsBelow);
-      });
-    }
-
-    if (showManualFieldsBelow) {
-      wireEditorListeners();
-    } else {
-      document.getElementById("manual-entry-link-btn").addEventListener("click", function () {
-        resolve(null, null);
-      });
+      document.getElementById("search-area-instead-btn").addEventListener("click", handleSearchAreaInstead);
     }
   }
 
   /* ============================= Resolving a pick ============================= */
+  // Only ever called with an actual picked result - there's no more
+  // "resolve to null" path, since there's no manual-entry mode distinct
+  // from "nothing picked yet" to fall into.
   function resolve(candidate, meta) {
     state.confirmed = false;
-    if (!candidate) {
-      // No match, or the user chose to skip straight to manual entry - never
-      // a dead end. Address Line 1 is left untouched if something was
-      // already typed there. selectedLocation IS cleared - it's derived
-      // from a Places pick, and there's no pick to derive it from here.
-      state.showManual = true;
-      state.hasResolved = false;
-      state.isAreaPick = false;
-      state.selectedLocation = "";
-      state.areaLabel = "";
-      state.fields = Object.assign({}, EMPTY_FIELDS);
-      renderApp();
-      return;
-    }
-    // Office name is kept only to re-seed the search panel - the confirm
-    // screen shows the actual place the user picked instead (selectedLocation),
-    // since that's more useful to verify against than the original search
-    // query. Address Line 1 is independent, user-owned state - a location
-    // pick only ever touches Line 2/3 + city/state/pincode + selectedLocation.
+    searchUi.phase = "idle";
     state.selectedLocation = candidate.name || "";
     state.fields = buildAddressLines(candidate.components);
     state.isAreaPick = meta && meta.kind === "area";
-    state.areaLabel = state.isAreaPick ? meta.label : "";
     state.hasResolved = true;
-    state.showManual = false;
     renderApp();
   }
 
@@ -1008,14 +940,18 @@
 
   function continueFromCompanyDetails(companyName) {
     state.officeName = companyName;
-    state.selectedLocation = "";
-    state.areaLabel = "";
+    // Pre-fills Selected location with the Career Info company name, same
+    // as the search box it doubles as always used to arrive pre-filled.
+    state.selectedLocation = companyName;
     state.addressLine1 = "";
     state.step = "address";
     state.confirmed = false;
     state.isAreaPick = false;
+    state.hasResolved = false;
     state.fields = Object.assign({}, EMPTY_FIELDS);
-    startSearch(companyName);
+    searchUi.phase = "idle";
+    searchUi.suggestions = [];
+    searchUi.fallbackAreas = [];
     renderApp();
   }
 
@@ -1059,27 +995,31 @@
   }
 
   /* ============================= Render: Address screen ============================= */
-  // Structured fields HTML/listeners, factored out so they can render either
-  // standalone (once something has resolved) or appended below the search
-  // panel (manual entry, before anything has resolved - see renderSearchPanel).
+  // Exactly one screen (2026-08 correction) - the Search button and its
+  // results/no-match list render right here, beside Selected location,
+  // rather than as a separate step. There's no manual-entry mode to branch
+  // on either: an unresolved form already is manual entry.
   function buildEditorHtml() {
     var fieldsReadOnly = state.hasResolved;
     var canConfirm = state.addressLine1.trim().length > 0;
+    var canSearch = state.selectedLocation.trim().length >= MIN_QUERY_LENGTH;
     var f = state.fields;
 
     var html = "";
-    html += "<h3 style='margin:0 0 4px;'>" + (state.showManual ? "Enter your office address" : "Confirm your address") + "</h3>";
+    html += "<h3 style='margin:0 0 4px;'>" + (state.hasResolved ? "Confirm your address" : "Enter your office address") + "</h3>";
     html += '<p class="editor-hint">' + (fieldsReadOnly
       ? "Address Line 1 is yours to fill in — the rest came from your selected location and can&rsquo;t be edited here."
-      : "No location selected yet — every field below is yours to fill in.") + "</p>";
+      : "Search for your office below, or fill in every field yourself.") + "</p>";
 
-    html += '<label class="field">Selected location<input id="f-selectedlocation" placeholder="e.g. your company or building name" value="' + escapeHtml(state.selectedLocation) + '" /></label>';
+    html += '<div class="row-with-btn">' +
+      '<label class="field">Selected location<input id="f-selectedlocation" placeholder="e.g. your company or building name" value="' +
+        escapeHtml(state.selectedLocation) + '" /></label>' +
+      '<button type="button" class="btn btn-secondary" id="search-btn"' + (canSearch ? "" : " disabled") + ">Search</button>" +
+      "</div>";
+
+    html += buildSearchUiHtml();
 
     if (state.isAreaPick) {
-      html += '<div class="row-with-btn">' +
-        '<label class="field">Area<input id="f-arealabel" value="' + escapeHtml(state.areaLabel) + '" /></label>' +
-        '<button type="button" class="btn btn-secondary" id="search-area-btn">Search area</button>' +
-        "</div>";
       html += '<div class="notice">We could only find the general area for this office — Address Line 2 and 3 may be incomplete. Add the exact floor, building, or tower in Address Line 1 below.</div>';
     }
 
@@ -1110,14 +1050,21 @@
     var fieldsReadOnly = state.hasResolved;
     var canConfirm = state.addressLine1.trim().length > 0;
 
-    document.getElementById("f-selectedlocation").addEventListener("input", function (e) { state.selectedLocation = e.target.value; });
-    if (state.isAreaPick) {
-      document.getElementById("f-arealabel").addEventListener("input", function (e) { state.areaLabel = e.target.value; });
-      document.getElementById("search-area-btn").addEventListener("click", function () {
-        startSearch(state.areaLabel);
-        renderAddressScreen();
-      });
-    }
+    document.getElementById("f-selectedlocation").addEventListener("input", function (e) {
+      state.selectedLocation = e.target.value;
+      if (searchUi.phase === "results") searchUi.phase = "idle";
+      renderAddressScreen();
+      var el = document.getElementById("f-selectedlocation");
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+    document.getElementById("f-selectedlocation").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") handleSearchClick();
+    });
+    var $searchBtn = document.getElementById("search-btn");
+    if ($searchBtn) $searchBtn.addEventListener("click", handleSearchClick);
+    wireSearchUiListeners();
+
     document.getElementById("f-line1").addEventListener("input", function (e) {
       state.addressLine1 = e.target.value;
       renderAddressScreen();
@@ -1140,15 +1087,6 @@
     $title.textContent = "Add your office address";
     $subtitle.textContent = "To verify your employment details";
     $backBtn.disabled = false;
-
-    if (!state.hasResolved) {
-      // 2026-08: the search panel stays available for as long as nothing has
-      // resolved yet - including through manual entry - so "Enter address
-      // manually" is a fork you can still search your way back out of,
-      // instead of a screen with no search option at all.
-      renderSearchPanel(state.showManual);
-      return;
-    }
 
     $card.innerHTML = buildEditorHtml();
     wireEditorListeners();

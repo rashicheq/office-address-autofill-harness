@@ -805,57 +805,9 @@ body {
   font-size: 13px;
 }
 
-/* --- Inline office search panel: pre-filled search bar + explicit Search
-   CTA, results/fallback areas/manual-entry all in the flow of the address
-   page itself (2026-08: no more full-page sheet/overlay). --- */
-.search-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.inline-search-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.search-bar {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 11px 16px;
-  background: #f3f4f6;
-  min-width: 0;
-}
-
-.search-bar-icon {
-  font-size: 15px;
-  flex-shrink: 0;
-}
-
-.search-bar-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 14px;
-  color: var(--text-dark);
-}
-
-.search-bar-input:focus {
-  outline: none;
-}
-
-.search-cta {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
+/* --- Office search: a Search button beside "Selected location" itself
+   (2026-08: no separate search screen/step - results, no-match, and
+   fallback areas all render right there in the address form). --- */
 .search-area-cta {
   display: flex;
   align-items: center;
@@ -923,17 +875,8 @@ body {
   margin-top: 2px;
 }
 
-.search-loading {
-  padding: 16px 0;
-  text-align: center;
-}
-
 .no-match-note {
   color: var(--text-muted);
   font-size: 13.5px;
   margin: 14px 0 4px;
-}
-
-.manual-entry-link {
-  margin-top: 12px;
 }
