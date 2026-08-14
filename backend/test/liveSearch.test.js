@@ -1,6 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeGooglePlace, isLiveApiConfigured } from "../src/lib/liveSearch.js";
+import { normalizeGooglePlace, isLiveApiConfigured, buildOfficeIntentQuery } from "../src/lib/liveSearch.js";
+
+test("buildOfficeIntentQuery appends 'office' to bias search intent (TC-6)", () => {
+  assert.equal(buildOfficeIntentQuery("Vantage Corp"), "Vantage Corp office");
+  assert.equal(buildOfficeIntentQuery("Koramangala"), "Koramangala office");
+});
+
+test("buildOfficeIntentQuery doesn't double up when 'office' is already present", () => {
+  assert.equal(buildOfficeIntentQuery("Vantage Corporate Office"), "Vantage Corporate Office");
+  assert.equal(buildOfficeIntentQuery("cheq office"), "cheq office");
+});
+
+test("buildOfficeIntentQuery handles empty input without crashing", () => {
+  assert.equal(buildOfficeIntentQuery(""), "");
+  assert.equal(buildOfficeIntentQuery("   "), "");
+  assert.equal(buildOfficeIntentQuery(undefined), "");
+});
 
 test("normalizeGooglePlace maps a well-typed Google (New) place into the internal candidate shape", () => {
   const place = {

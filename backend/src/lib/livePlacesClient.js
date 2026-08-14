@@ -14,6 +14,13 @@ const ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
 // place_id at all.
 const FIELD_MASK = "places.id,places.displayName,places.addressComponents,places.plusCode,places.formattedAddress,places.location";
 
+// regionCode biases results toward India and affects address formatting
+// (e.g. "Bengaluru" over a transliteration) - this harness has no non-India
+// use case anywhere (fixtures, the default reference location, the whole
+// product framing), so it's hardcoded rather than threaded through as a
+// parameter for a use case that doesn't exist yet.
+const REGION_CODE = "IN";
+
 export async function searchPlacesText(textQuery, apiKey) {
   const response = await fetch(ENDPOINT, {
     method: "POST",
@@ -22,7 +29,7 @@ export async function searchPlacesText(textQuery, apiKey) {
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask": FIELD_MASK,
     },
-    body: JSON.stringify({ textQuery }),
+    body: JSON.stringify({ textQuery, regionCode: REGION_CODE }),
   });
 
   if (!response.ok) {

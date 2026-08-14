@@ -32,9 +32,16 @@ const HEADER_COPY = {
 // (floor/building detail), and it stays independent of whichever
 // office/area is picked, same as officeName. City/District, State, and
 // Pincode are still simple direct passthroughs of locality/administrative_
-// area_level_1/postal_code, unchanged. Confidence score, FiltersApplied,
-// and the old structured fields still exist and still compute — that's
-// Dev Mode's diagnostic view now, not what ships here.
+// area_level_1/postal_code. Confidence score, FiltersApplied, and the old
+// structured fields still exist and still compute — that's Dev Mode's
+// diagnostic view now, not what ships here.
+//
+// Field editability (2026-08 Places-Autocomplete-prefill PRD): once a
+// result comes from a Places pick (hasResolved), every field it populated
+// - Line 2/3, Pincode, City/District, State - is read-only; Address Line 1
+// is the only thing the user can type. In full manual entry (showManual,
+// no Places data exists at all) every field, including city/state, is a
+// normal editable input instead - see `fieldsReadOnly` below.
 export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [step, setStep] = useState("company"); // "company" | "address"
   const [officeName, setOfficeName] = useState("");
@@ -130,6 +137,11 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
   const showEditor = hasResolved || showManual;
   const header = HEADER_COPY[step];
   const canConfirm = addressLine1.trim().length > 0;
+  // Fields populated from a Places pick are locked - only Address Line 1
+  // is ever user-entered in that case. In full manual entry there is no
+  // Places data to protect, so every field (including city/state, which
+  // Places-driven results never let the user touch) is a normal input.
+  const fieldsReadOnly = hasResolved;
 
   return (
     <div className="user-mode">
@@ -202,7 +214,11 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
             {showEditor && (
               <div className="address-editor">
                 <h3>{showManual ? "Enter your office address" : "Confirm your address"}</h3>
-                <p className="editor-hint">Every field stays editable — review before continuing.</p>
+                <p className="editor-hint">
+                  {fieldsReadOnly
+                    ? "Address Line 1 is yours to fill in — the rest came from your selected location and can't be edited here."
+                    : "No location selected yet — every field below is yours to fill in."}
+                </p>
 
                 <label className="field">
                   Office name
@@ -242,16 +258,28 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
 
                 <label className="field">
                   Address Line 2
-                  <input value={fields.addressLine2} onChange={(e) => updateField("addressLine2", e.target.value)} />
+                  <input
+                    value={fields.addressLine2}
+                    onChange={(e) => updateField("addressLine2", e.target.value)}
+                    disabled={fieldsReadOnly}
+                  />
                 </label>
                 <label className="field">
                   Address Line 3
-                  <input value={fields.addressLine3} onChange={(e) => updateField("addressLine3", e.target.value)} />
+                  <input
+                    value={fields.addressLine3}
+                    onChange={(e) => updateField("addressLine3", e.target.value)}
+                    disabled={fieldsReadOnly}
+                  />
                 </label>
 
                 <label className="field">
                   Office Pin Code
-                  <input value={fields.pincode} onChange={(e) => updateField("pincode", e.target.value)} />
+                  <input
+                    value={fields.pincode}
+                    onChange={(e) => updateField("pincode", e.target.value)}
+                    disabled={fieldsReadOnly}
+                  />
                 </label>
 
                 {fields.cityDistrict && fields.state && (
@@ -263,11 +291,19 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                 <div className="field-row">
                   <label className="field">
                     City/District
-                    <input value={fields.cityDistrict} disabled />
+                    <input
+                      value={fields.cityDistrict}
+                      onChange={(e) => updateField("cityDistrict", e.target.value)}
+                      disabled={fieldsReadOnly}
+                    />
                   </label>
                   <label className="field">
                     State
-                    <input value={fields.state} disabled />
+                    <input
+                      value={fields.state}
+                      onChange={(e) => updateField("state", e.target.value)}
+                      disabled={fieldsReadOnly}
+                    />
                   </label>
                 </div>
 

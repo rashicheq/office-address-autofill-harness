@@ -151,8 +151,27 @@ function buildErrorLogEntries({ rankingMethod, candidateCount }) {
   return log;
 }
 
+// TC-6 / Places-Autocomplete-prefill PRD ("search intent shall prioritise
+// establishment type: office"): Google's Places type taxonomy has no
+// verified, documented enum for a narrow "office" category, so this biases
+// via the query text itself rather than a guessed `includedType` value that
+// could 400 a real request. Only appends "office" when the typed text
+// doesn't already carry that word (avoids "Vantage Corporate Office
+// office"). The office name itself is left untouched for name-match
+// confidence scoring and for echoing back in the response - only the text
+// actually sent to Google is augmented.
+const OFFICE_INTENT_KEYWORD = /\boffice\b/i;
+
+export function buildOfficeIntentQuery(officeName) {
+  const trimmed = (officeName || "").trim();
+  if (!trimmed || OFFICE_INTENT_KEYWORD.test(trimmed)) return trimmed;
+  return `${trimmed} office`;
+}
+
 /**
- * officeName: typed query string, sent verbatim to Google as textQuery.
+ * officeName: typed query string. What's actually sent to Google as
+ *   textQuery is buildOfficeIntentQuery(officeName), not this verbatim -
+ *   see above.
  * currentLocation: {latitude, longitude} | null | undefined — omitted means
  *   "use the harness's default reference point", NOT "unavailable".
  * simulateGeocodeUnavailable: forces TC-17/19 fallback behavior regardless
@@ -169,7 +188,7 @@ export async function runLiveSearch({ officeName, currentLocation, simulateGeoco
 
   let rawPlaces;
   try {
-    rawPlaces = await searchPlacesText(officeName, apiKey);
+    rawPlaces = await searchPlacesText(buildOfficeIntentQuery(officeName), apiKey);
   } catch (err) {
     return {
       source: "live",

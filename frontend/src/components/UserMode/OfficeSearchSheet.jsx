@@ -25,11 +25,16 @@ export default function OfficeSearchSheet({ initialQuery, dataSource, onResolve,
   const debounceRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Places Autocomplete only fires once there's enough text to search
+  // meaningfully - matches the agreed 3-character minimum so a single
+  // keystroke doesn't burn a lookup.
+  const MIN_QUERY_LENGTH = 3;
+
   useEffect(() => {
     if (subStep !== "search") return;
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      if (!query.trim()) {
+      if (query.trim().length < MIN_QUERY_LENGTH) {
         setSuggestions([]);
         return;
       }
@@ -84,7 +89,7 @@ export default function OfficeSearchSheet({ initialQuery, dataSource, onResolve,
     inputRef.current?.focus();
   };
 
-  const showEmptyState = subStep === "search" && query.trim() && suggestions.length === 0;
+  const showEmptyState = subStep === "search" && query.trim().length >= MIN_QUERY_LENGTH && suggestions.length === 0;
 
   return (
     <div className="map-sheet-overlay" role="dialog" aria-modal="true">

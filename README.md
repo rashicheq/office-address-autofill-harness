@@ -1,6 +1,6 @@
 # Office Address Autofill — Test Harness
 
-Local harness for validating the Office Address Autofill V2 ranking, formatting, and confidence-scoring logic against mock data (and now, optionally, real Google Places data). See `CLAUDE.md` for full PM/context, `docs/PRD_Office_Address_Autofill_V2.md` for the current, as-built product spec (flow, Google API integration split, field model, test cases, open questions), and `docs/PRD_Office_Address_Autofill.md` for the original pre-build draft it supersedes.
+Local harness for validating the Office Address Autofill V2 ranking, formatting, and confidence-scoring logic against mock data (and now, optionally, real Google Places data). See `CLAUDE.md` for full PM/context, `docs/PRD_Office_Address_Autofill_V2.md` for the current, as-built product spec (flow, Google API integration split, field model, test cases, open questions), `docs/PRD_Places_Autocomplete_Prefill.md` for the formal FR/AC-numbered spec behind the Career-Info-prefill mechanic and the field-editability rule, and `docs/PRD_Office_Address_Autofill.md` for the original pre-build draft it all supersedes.
 
 ## Run it
 
@@ -38,6 +38,8 @@ User Mode opens on **Company Details** (name/designation/email/experience). Subm
 Office name and area are independent once resolved: the confirm screen shows **two rows** — "Office name" (a plain editable field, no re-search action of its own) and "Area" (only when a locality match was picked, with its own "Search area" button that reopens the sheet seeded with the area's current value).
 
 **Address fields (2026-08 pivot):** the confirm screen no longer uses the backend rules engine at all. `frontend/src/lib/addressLineConfig.js` builds **Address Line 2** (subpremise + premise + street_number) and **Address Line 3** (route) directly from the raw Google-typed components — no abbreviation, no dropping, no length budget. **Address Line 1 is never auto-filled, for any result** — the user always types it (floor number, building/tower name), and "Confirm and Continue" is disabled until it has text. City/District, State, and Pincode are still simple passthroughs, unchanged. This is independent, user-owned state exactly like Office name — re-searching the office or area never clears whatever's already typed into Line 1.
+
+**Field editability (2026-08 Places-Autocomplete-prefill PRD):** once a result comes from a Places pick, every field it populated — Line 2/3, Pincode, City/District, State — is **read-only**; only Address Line 1 accepts typing. In full manual entry (no Places result at all), every field is a normal editable input. The search sheet also now withholds suggestions until the query has 3+ characters, and the real Places Text Search call (when a key is configured) sends `regionCode: "IN"` and biases the query text toward office-type results.
 
 No Maps JavaScript API, Geocoding API, or Places Autocomplete API call is made anywhere — see `CLAUDE.md` Section 4.0 for what wiring in the real ones later would need.
 

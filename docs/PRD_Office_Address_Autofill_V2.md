@@ -1,7 +1,8 @@
 # PRD: Office Address Auto-Fill — V2 (Google Places-powered)
 
-**Owner:** Rashi | **Stage:** As-built, validated in local test harness | **Last updated:** 7 August 2026
+**Owner:** Rashi | **Stage:** As-built, validated in local test harness | **Last updated:** 14 August 2026
 **Supersedes:** `PRD_Office_Address_Autofill.md` (18 July 2026 draft) — that document's problem statement and phasing rationale are still valid background; this document replaces its Section 3 onward with what was actually designed, built, and verified since.
+**Complemented by:** `PRD_Places_Autocomplete_Prefill.md` (14 August 2026) — a separate, formally-structured PRD (FR/AC numbering) specifically for the Career-Info-to-search-box prefill mechanic and the field-editability rule. Section 5 below has been updated to match it exactly; that document's own "Implementation Notes" section records the harness-specific caveats (mocked Autocomplete, no `includedType` guess, open invocation-timing question).
 
 ---
 
@@ -44,7 +45,7 @@ This document describes that hybrid as it now stands, validated against three re
    - A company with more than one office shows **every branch as its own row**, closest-to-the-user ranked first and labeled, so picking a branch is a single action.
 4. **If nothing matches**, a **"📍 Search area"** action sits directly next to the search bar (not a buried message) to pivot straight into an area search; "Enter address manually instead" is always available as a secondary, always-visible fallback — never a dead end.
 5. **Selecting a result closes the sheet** and drops the user onto the address-confirmation screen, fields pre-filled per Section 5 below.
-6. **The user always fills in Address Line 1 themselves** (floor number, building/tower name) — this is true for every case: a full office match, an area-only match, or no match at all. Every other field stays editable too.
+6. **The user always fills in Address Line 1 themselves** (floor number, building/tower name) — this is true for every case: a full office match, an area-only match, or no match at all. Every field Places actually populated (Line 2/3, City/District, State, Pincode) is **read-only** once filled — only in full manual entry (no Places result at all) are those fields open to typing.
 7. **Confirm and Continue is disabled until Line 1 has text.** Submitting hands the address off to whatever consumes it next (Section 9 — out of scope here).
 
 Office name and the picked area (when applicable) are independent, re-searchable pieces of state — re-searching one never overwrites the other or clears Address Line 1.
@@ -57,7 +58,7 @@ The user's own framing for this feature is "Google Maps API along with Places Au
 
 | API | Status in this harness | Detail |
 |---|---|---|
-| **Places Text Search (New)** | **Real**, gated on a key | `backend/src/lib/livePlacesClient.js` calls `https://places.googleapis.com/v1/places:searchText` with a field mask (`places.id,places.displayName,places.addressComponents,places.plusCode,places.formattedAddress,places.location`) whenever `GOOGLE_PLACES_API_KEY` is present in `backend/.env`. This is what actually fetches an office's address once a specific result is being resolved. |
+| **Places Text Search (New)** | **Real**, gated on a key | `backend/src/lib/livePlacesClient.js` calls `https://places.googleapis.com/v1/places:searchText` with a field mask (`places.id,places.displayName,places.addressComponents,places.plusCode,places.formattedAddress,places.location`) whenever `GOOGLE_PLACES_API_KEY` is present in `backend/.env`. This is what actually fetches an office's address once a specific result is being resolved. As of the 2026-08 Places-Autocomplete-prefill PRD, the request also sends `regionCode: "IN"` and appends "office" to the query text when not already present (`buildOfficeIntentQuery`) — a safe, query-text-level way to bias toward India and office-type establishments, chosen over a stricter `includedType` filter since Google's documented place types have no verified narrow "office" enum to filter on without risking a real 400. |
 | **Places Autocomplete** | **Fully mocked** | There is no Places Autocomplete key or setup. The search sheet's live-suggestions list is `GET /suggest?q=`, which fuzzy-matches the typed text against a local fixture set (`backend/src/data/fixtures.json`) — not a real Google call. Selecting a suggestion still triggers a real `/search` (which *can* call real Places Text Search per the row above) — only the type-ahead matching itself is fake. |
 | **Maps JavaScript API** | **Not used** | No map is rendered anywhere in the current design (see Section 10 for the earlier map-based passes that were explicitly rejected). |
 | **Geocoding API** | **Not used** | The "user's current location" used for proximity ranking (Section 7) is a hardcoded reference point (`CONFIG.DEFAULT_CURRENT_LOCATION`) or a lat/lng passed in directly — never derived from a real address via geocoding. |
@@ -80,18 +81,20 @@ Two different approaches were built for this, in sequence — both still exist i
 
 A small, dependency-free frontend config (`frontend/src/lib/addressLineConfig.js`) builds two fields directly from Google's raw, typed address components — no abbreviation, no length budget, no dropping:
 
-| Field | Built from | Auto-filled? |
-|---|---|---|
-| **Address Line 1** | *(nothing — always blank)* | **Never.** The user always types this: floor number, building/tower name. Required — "Confirm and Continue" is disabled until it has text. |
-| **Address Line 2** | `subpremise` + `premise` + `street_number` (joined) | Yes, whatever's present |
-| **Address Line 3** | `route` | Yes, if present |
-| City/District | `locality` | Yes |
-| State | `administrative_area_level_1` | Yes |
-| Pincode | `postal_code` | Yes |
+| Field | Built from | Auto-filled? | Editable? |
+|---|---|---|---|
+| **Address Line 1** | *(nothing — always blank)* | **Never.** The user always types this: floor number, building/tower name. Required — "Confirm and Continue" is disabled until it has text. | Always |
+| **Address Line 2** | `subpremise` + `premise` + `street_number` (joined) | Yes, whatever's present | Only in full manual entry (see below) |
+| **Address Line 3** | `route` | Yes, if present | Only in full manual entry |
+| City/District | `locality` | Yes | Only in full manual entry |
+| State | `administrative_area_level_1` | Yes | Only in full manual entry |
+| Pincode | `postal_code` | Yes | Only in full manual entry |
 
 Whichever of these raw types are missing simply leaves that field blank — there is no special-case handling for a thin result. An area-only pick (rather than a specific office) naturally produces emptier Line 2/3 through this same mechanism, with a lightweight notice ("we could only find the general area") rather than a distinct code path.
 
-**Why this replaced the original rule set:** the original design (Section 5.2 below) tried to auto-fill precise floor/building detail and only fell back to asking the user when Google's data was too sparse to trust. The revised plan inverts this: floor/building detail (the part Google is least reliable about) is *always* asked of the user, and only the parts Google is reliably good at (street/route, city, state, pincode) are auto-filled. This is a simpler, more honest contract with the user than a rules engine trying to guess when to trust the data.
+**Editability (added by the Places-Autocomplete-prefill PRD, 2026-08):** once a result comes from a Places pick, every field it populated is **read-only** — only Address Line 1 accepts typing. This is a deliberate reversal of this document's own earlier "every field stays editable" cross-cutting principle (Section 12... carried from the original PRD), scoped specifically to Places-sourced data. In full manual entry (no Places result was ever picked), every field — including City/District and State — is a normal editable input, since there's no Places data to protect in that path.
+
+**Why this replaced the original rule set:** the original design (Section 5.2 below) tried to auto-fill precise floor/building detail and only fell back to asking the user when Google's data was too sparse to trust. The revised plan inverts this: floor/building detail (the part Google is least reliable about) is *always* asked of the user, and only the parts Google is reliably good at (street/route, city, state, pincode) are auto-filled — and now locked once filled, rather than left open to accidental edits that would silently diverge from what Places actually returned.
 
 ### 5.2 Diagnostic model (Dev Mode only, unchanged): the original rules engine
 
