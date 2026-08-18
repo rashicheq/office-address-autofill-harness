@@ -1,0 +1,8 @@
+# One office name per line. Lines starting with # are ignored.
+# Copy this file to office-names.txt (in this same folder) and replace
+# these with your real list of 100 office names.
+CheQ Digital Private Limited
+Vantage Corp
+Fple
+Scapia
+Kiwi
