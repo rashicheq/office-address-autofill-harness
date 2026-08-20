@@ -818,13 +818,20 @@
   // Falls back to "any digit at all" only if no such token exists.
   var PLOT_NUMBER_PATTERN = /^\d+[\d/-]*[a-zA-Z]?$/;
   var HAS_DIGIT = /\d/;
+  // A Google Plus Code ("J6R9+55M") is digit-bearing but isn't a building
+  // number - found against a real 300+ address sample, where one would
+  // otherwise win the fallback tier below purely for containing digits.
+  // Excluded from both tiers; still survives into whichever line the rest
+  // of the split puts it in (rule 3: never dropped), just never anchors
+  // Line 1 alone.
+  var PLUS_CODE_PATTERN = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
 
   function findNumberedIndex(elements) {
     for (var i = 0; i < elements.length; i++) {
-      if (PLOT_NUMBER_PATTERN.test(elements[i])) return i;
+      if (!PLUS_CODE_PATTERN.test(elements[i]) && PLOT_NUMBER_PATTERN.test(elements[i])) return i;
     }
     for (var j = 0; j < elements.length; j++) {
-      if (HAS_DIGIT.test(elements[j])) return j;
+      if (!PLUS_CODE_PATTERN.test(elements[j]) && HAS_DIGIT.test(elements[j])) return j;
     }
     return -1;
   }

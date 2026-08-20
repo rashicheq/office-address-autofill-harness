@@ -60,10 +60,20 @@ function stripKnownComponents(formattedAddress, known) {
 const PLOT_NUMBER_PATTERN = /^\d+[\d/-]*[a-zA-Z]?$/;
 const HAS_DIGIT = /\d/;
 
+// A Google Plus Code ("J6R9+55M") is digit-bearing but isn't a building
+// number - discovered against a real 300+ address sample, where one stood
+// in for a proper street address and would otherwise win the tier-2
+// fallback below purely for containing digits, anchoring Line 1 on a plus
+// code instead of a real detail. Excluded from both tiers; a plus code
+// still survives into whichever line rule 5 (or the rest split below) puts
+// it in - rule 3 never drops it, it just never anchors Line 1 alone.
+const PLUS_CODE_PATTERN = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}$/i;
+
 function findNumberedIndex(elements) {
-  const plotIndex = elements.findIndex((el) => PLOT_NUMBER_PATTERN.test(el));
+  const eligible = (el) => !PLUS_CODE_PATTERN.test(el);
+  const plotIndex = elements.findIndex((el) => eligible(el) && PLOT_NUMBER_PATTERN.test(el));
   if (plotIndex !== -1) return plotIndex;
-  return elements.findIndex((el) => HAS_DIGIT.test(el));
+  return elements.findIndex((el) => eligible(el) && HAS_DIGIT.test(el));
 }
 
 // Fills groups front-to-back, each group taking ceil(remaining / groupsLeft)
