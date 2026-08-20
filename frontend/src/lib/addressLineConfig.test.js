@@ -128,6 +128,38 @@ test("co-working subpremise with its own internal comma and digits ('BHIVE Works
   assert.equal(result.addressLine1, "7");
 });
 
+test("a Google Plus Code never anchors Line 1, even when no real plot number exists (bug found against a real 309-address sample)", () => {
+  const components = [
+    { type: "sublocality_level_1", text: "Paharganj" },
+    { type: "locality", text: "New Delhi" },
+    { type: "administrative_area_level_1", text: "Delhi" },
+    { type: "postal_code", text: "110055" },
+  ];
+  const formatted =
+    "C/o Social Justice Centre, J6R9+55M, Paharganj, Aram Bagh, Paharganj, New Delhi, Delhi, 110055";
+  const result = buildAddressLines(components, formatted);
+  assert.notEqual(result.addressLine1, "J6R9+55M");
+  assert.equal(result.hasNumberInLine1, false);
+  // Rule 3: the plus code is never dropped, just no longer allowed to
+  // anchor Line 1 on its own - it still survives somewhere in the output.
+  const allLines = `${result.addressLine1} ${result.addressLine2} ${result.addressLine3}`;
+  assert.match(allLines, /J6R9\+55M/);
+});
+
+test("a real plot number still wins over an unrelated Plus Code in the same address", () => {
+  const components = [
+    { type: "street_number", text: "7" },
+    { type: "route", text: "Kundalahalli Road" },
+    { type: "locality", text: "Bengaluru" },
+    { type: "administrative_area_level_1", text: "Karnataka" },
+    { type: "postal_code", text: "560048" },
+  ];
+  const formatted = "XHFH+P79, 7, Kundalahalli Road, Bengaluru, Karnataka 560048";
+  const result = buildAddressLines(components, formatted);
+  assert.equal(result.addressLine1, "7");
+  assert.equal(result.hasNumberInLine1, true);
+});
+
 test("handles a missing/empty formattedAddress without throwing", () => {
   const result = buildAddressLines([{ type: "locality", text: "Bengaluru" }], "");
   assert.equal(result.addressLine1, "");
