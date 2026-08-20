@@ -578,6 +578,7 @@
           placeId: "cheq-1",
           name: "CheQ Digital Private Limited",
           lat: 12.8919, lng: 77.6424,
+          formattedAddress: "BHIVE Workspace, 1st Floor, AKR Tech Park, 7, Kundalahalli Road, Mahadevapura, Bengaluru, Karnataka 560048, India",
           components: {
             subpremise: "BHIVE Workspace, 1st Floor",
             premise: "AKR Tech Park",
@@ -600,6 +601,7 @@
           placeId: "vantage-indiranagar",
           name: "Vantage Corp (Indiranagar Branch)",
           lat: 12.9716, lng: 77.6412,
+          formattedAddress: "6th Floor, Vantage Corp, 100, 100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038, India",
           components: {
             subpremise: "6th Floor", premise: "Vantage Corp", street_number: "100",
             route: "100 Feet Road", sublocality_level_1: "Indiranagar",
@@ -610,6 +612,7 @@
           placeId: "vantage-electroniccity",
           name: "Vantage Corp (Electronic City Branch)",
           lat: 12.8452, lng: 77.6602,
+          formattedAddress: "Tower B, 4th Floor, Vantage Corp, 9, Hosur Road, Electronic City, Bengaluru, Karnataka 560100, India",
           components: {
             subpremise: "Tower B, 4th Floor", premise: "Vantage Corp", street_number: "9",
             route: "Hosur Road", sublocality_level_1: "Electronic City",
@@ -620,6 +623,7 @@
           placeId: "vantage-koramangala",
           name: "Vantage Corp (Koramangala Branch)",
           lat: 12.9279, lng: 77.6271,
+          formattedAddress: "2nd Floor, Vantage Corp, 14, 80 Feet Road, Koramangala, Bengaluru, Karnataka 560095, India",
           components: {
             subpremise: "2nd Floor", premise: "Vantage Corp", street_number: "14",
             route: "80 Feet Road", sublocality_level_1: "Koramangala",
@@ -630,6 +634,7 @@
           placeId: "vantage-whitefield",
           name: "Vantage Corp (Whitefield Branch)",
           lat: 12.9698, lng: 77.7500,
+          formattedAddress: "3rd Floor, Vantage Corp, 55, Whitefield Main Road, Whitefield, Bengaluru, Karnataka 560066, India",
           components: {
             subpremise: "3rd Floor", premise: "Vantage Corp", street_number: "55",
             route: "Whitefield Main Road", sublocality_level_1: "Whitefield",
@@ -646,6 +651,7 @@
         placeId: "area-koramangala-1",
         name: "Koramangala, Bengaluru",
         lat: 12.9352, lng: 77.6271,
+        formattedAddress: "Koramangala, Bengaluru, Karnataka 560034, India",
         components: {
           sublocality_level_1: "Koramangala", locality: "Bengaluru",
           administrative_area_level_1: "Karnataka", postal_code: "560034",
@@ -660,6 +666,7 @@
         placeId: "area-whitefield-1",
         name: "Whitefield, Bengaluru",
         lat: 12.9698, lng: 77.7500,
+        formattedAddress: "Whitefield, Bengaluru, Karnataka 560066, India",
         components: {
           sublocality_level_1: "Whitefield", locality: "Bengaluru",
           administrative_area_level_1: "Karnataka", postal_code: "560066",
@@ -674,6 +681,7 @@
         placeId: "area-indiranagar-1",
         name: "Indiranagar, Bengaluru",
         lat: 12.9716, lng: 77.6412,
+        formattedAddress: "Indiranagar, Bengaluru, Karnataka 560038, India",
         components: {
           sublocality_level_1: "Indiranagar", locality: "Bengaluru",
           administrative_area_level_1: "Karnataka", postal_code: "560038",
@@ -688,6 +696,7 @@
         placeId: "area-electroniccity-1",
         name: "Electronic City, Bengaluru",
         lat: 12.8452, lng: 77.6602,
+        formattedAddress: "Electronic City, Bengaluru, Karnataka 560100, India",
         components: {
           sublocality_level_1: "Electronic City", locality: "Bengaluru",
           administrative_area_level_1: "Karnataka", postal_code: "560100",
@@ -702,6 +711,7 @@
         placeId: "area-marathahalli-1",
         name: "Marathahalli, Bengaluru",
         lat: 12.9591, lng: 77.6974,
+        formattedAddress: "Marathahalli, Bengaluru, Karnataka 560037, India",
         components: {
           sublocality_level_1: "Marathahalli", locality: "Bengaluru",
           administrative_area_level_1: "Karnataka", postal_code: "560037",
@@ -769,20 +779,98 @@
     });
   }
 
-  /* =================== Address Line config (addressLineConfig.js) =================== */
-  var LINE2_TYPES = ["subpremise", "premise", "street_number"];
-  var LINE3_TYPES = ["route"];
+  /* =================== Address Line config (addressLineConfig.js) ===================
+     "The rules script" (2026-08 rewrite): works off the formattedAddress
+     STRING now, not a join of specific typed component types. Rules, in
+     order: (1) strip whatever's already captured as City/State/Pincode out
+     of the string so it's never repeated in the address lines too; (2)
+     split what's left at comma boundaries only - a comma-element is atomic,
+     never sub-split; (3) never drop an element unless it was a duplicate
+     from step 1; (4) the element that's an actual plot/building number
+     anchors Address Line 1, everything else splits across Line 2/3; (5) if
+     nothing has a number, just distribute every element across Line 1/2/3
+     (still never leaving Line 1 empty when there are fewer elements than
+     lines). Reverses the earlier "Address Line 1 is never auto-filled" rule
+     - Line 1 is populated same as Line 2/3 now, still editable regardless. */
+  function normalizeForCompare(s) { return (s || "").trim().toLowerCase(); }
 
-  function buildAddressLines(components) {
+  function isKnownDuplicate(element, knownWords) {
+    var words = normalizeForCompare(element).split(/\s+/).filter(Boolean);
+    return words.length > 0 && words.every(function (w) { return knownWords.indexOf(w) !== -1; });
+  }
+
+  function stripKnownComponents(formattedAddress, known) {
+    var knownValues = [known.city, known.state, known.pincode].map(normalizeForCompare).filter(Boolean);
+    var knownWords = [];
+    knownValues.forEach(function (v) {
+      v.split(/\s+/).forEach(function (w) { if (knownWords.indexOf(w) === -1) knownWords.push(w); });
+    });
+    return (formattedAddress || "")
+      .split(",")
+      .map(function (el) { return el.trim(); })
+      .filter(Boolean)
+      .filter(function (el) { return !isKnownDuplicate(el, knownWords); });
+  }
+
+  // "The element with the number" (rule 4) means an actual plot/building
+  // number ("7", "36/1", "23B") - not any element merely containing a
+  // digit, which would also catch floor/block descriptors like "1st Floor".
+  // Falls back to "any digit at all" only if no such token exists.
+  var PLOT_NUMBER_PATTERN = /^\d+[\d/-]*[a-zA-Z]?$/;
+  var HAS_DIGIT = /\d/;
+
+  function findNumberedIndex(elements) {
+    for (var i = 0; i < elements.length; i++) {
+      if (PLOT_NUMBER_PATTERN.test(elements[i])) return i;
+    }
+    for (var j = 0; j < elements.length; j++) {
+      if (HAS_DIGIT.test(elements[j])) return j;
+    }
+    return -1;
+  }
+
+  // Fills groups front-to-back, ceil(remaining / groupsLeft) at a time - a
+  // short list fills Line 1 (then 2, then 3) before any line is left empty.
+  function distribute(elements, groupCount) {
+    var groups = [];
+    var rest = elements.slice();
+    var groupsLeft = groupCount;
+    while (groupsLeft > 0) {
+      var take = Math.ceil(rest.length / groupsLeft);
+      groups.push(rest.slice(0, take));
+      rest = rest.slice(take);
+      groupsLeft--;
+    }
+    return groups;
+  }
+
+  function splitIntoLines(elements) {
+    var numberedIndex = findNumberedIndex(elements);
+    if (numberedIndex === -1) {
+      var g = distribute(elements, 3);
+      return { addressLine1: g[0].join(", "), addressLine2: g[1].join(", "), addressLine3: g[2].join(", "), hasNumberInLine1: false };
+    }
+    var line1 = elements[numberedIndex];
+    var rest = elements.filter(function (_, i) { return i !== numberedIndex; });
+    var g2 = distribute(rest, 2);
+    return { addressLine1: line1, addressLine2: g2[0].join(", "), addressLine3: g2[1].join(", "), hasNumberInLine1: true };
+  }
+
+  function buildAddressLines(components, formattedAddress) {
     components = components || {};
-    var line2 = LINE2_TYPES.map(function (t) { return components[t]; }).filter(Boolean).join(", ");
-    var line3 = LINE3_TYPES.map(function (t) { return components[t]; }).filter(Boolean).join(", ");
+    var cityDistrict = components.locality || "";
+    var state = components.administrative_area_level_1 || "";
+    var pincode = components.postal_code || "";
+    var elements = stripKnownComponents(formattedAddress, { city: cityDistrict, state: state, pincode: pincode });
+    var lines = splitIntoLines(elements);
     return {
-      addressLine2: line2,
-      addressLine3: line3,
-      cityDistrict: components.locality || "",
-      state: components.administrative_area_level_1 || "",
-      pincode: components.postal_code || "",
+      addressLine1: lines.addressLine1,
+      addressLine2: lines.addressLine2,
+      addressLine3: lines.addressLine3,
+      hasNumberInLine1: lines.hasNumberInLine1,
+      cityDistrict: cityDistrict,
+      state: state,
+      pincode: pincode,
     };
   }
 
@@ -801,6 +889,9 @@
     officeName: "",
     selectedLocation: "",
     addressLine1: "",
+    // Only meaningful once hasResolved is true - see resolve(). Defaults
+    // true so the "add a number" nudge doesn't show before anything's resolved.
+    hasNumberInLine1: true,
     hasResolved: false,
     isAreaPick: false,
     confirmed: false,
@@ -926,7 +1017,16 @@
     state.confirmed = false;
     searchUi.phase = "idle";
     state.selectedLocation = candidate.name || "";
-    state.fields = buildAddressLines(candidate.components);
+    var built = buildAddressLines(candidate.components, candidate.formattedAddress);
+    state.addressLine1 = built.addressLine1;
+    state.hasNumberInLine1 = built.hasNumberInLine1;
+    state.fields = {
+      addressLine2: built.addressLine2,
+      addressLine3: built.addressLine3,
+      cityDistrict: built.cityDistrict,
+      state: built.state,
+      pincode: built.pincode,
+    };
     state.isAreaPick = meta && meta.kind === "area";
     state.hasResolved = true;
     renderApp();
@@ -944,6 +1044,7 @@
     // as the search box it doubles as always used to arrive pre-filled.
     state.selectedLocation = companyName;
     state.addressLine1 = "";
+    state.hasNumberInLine1 = true;
     state.step = "address";
     state.confirmed = false;
     state.isAreaPick = false;
@@ -1008,7 +1109,9 @@
     var html = "";
     html += "<h3 style='margin:0 0 4px;'>" + (state.hasResolved ? "Confirm your address" : "Enter your office address") + "</h3>";
     html += '<p class="editor-hint">' + (fieldsReadOnly
-      ? "Address Line 1 is yours to fill in — the rest came from your selected location and can&rsquo;t be edited here."
+      ? (state.hasNumberInLine1
+          ? "Every field below came from your selected location — Address Line 1 is still yours to adjust if needed."
+          : "Every field below came from your selected location — Address Line 1 didn&rsquo;t come with a building/floor number, so add one before continuing.")
       : "Search for your office below, or fill in every field yourself.") + "</p>";
 
     html += '<div class="row-with-btn">' +
@@ -1024,7 +1127,9 @@
     }
 
     html += '<label class="field">Address Line 1<input id="f-line1" placeholder="e.g. 2nd Floor, Tower B" value="' + escapeHtml(state.addressLine1) + '" /></label>';
-    html += '<p class="field-hint">Always yours to fill in — add your floor number, building, or tower name here.</p>';
+    html += '<p class="field-hint' + (fieldsReadOnly && !state.hasNumberInLine1 ? ' warn' : '') + '">' + (fieldsReadOnly
+      ? (state.hasNumberInLine1 ? "Pre-filled from your selected location — always yours to edit." : "No building/floor number came through — add one here.")
+      : "Always yours to fill in — add your floor number, building, or tower name here.") + "</p>";
 
     html += '<label class="field">Address Line 2<input id="f-line2" value="' + escapeHtml(f.addressLine2) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>";
     html += '<label class="field">Address Line 3<input id="f-line3" value="' + escapeHtml(f.addressLine3) + '"' + (fieldsReadOnly ? " disabled" : "") + "></label>";

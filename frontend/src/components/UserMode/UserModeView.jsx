@@ -33,17 +33,24 @@ const HEADER_COPY = {
 // straight into the fields below always works, with or without ever
 // touching Search.
 //
-// Address fields (2026-08 "frontend config" pivot): the backend's
-// tier/drop/shorten rules engine no longer drives what this screen shows —
-// Address Line 2/3 are built directly from the raw Google-typed components
-// via lib/addressLineConfig.js (subpremise+premise+street_number → Line 2,
-// route → Line 3). Address Line 1 is NEVER auto-filled, by design, for any
-// result — found, not-found, or multi-branch — the user always types it
-// (floor/building detail), independent of whatever's searched. City/District,
-// State, and Pincode are still simple direct passthroughs of locality/
-// administrative_area_level_1/postal_code. Confidence score, FiltersApplied,
-// and the old structured fields still exist and still compute — that's Dev
-// Mode's diagnostic view now, not what ships here.
+// Address fields: the backend's tier/drop/shorten rules engine still isn't
+// what drives this screen — lib/addressLineConfig.js is. As of the 2026-08
+// "rules script" rewrite, THAT config no longer joins specific typed
+// component types either: it strips whatever's already captured as City/
+// State/Pincode out of Google's own formattedAddress string, then splits
+// whatever's left at comma boundaries into Address Line 1/2/3 (the element
+// carrying a real plot/building number anchors Line 1; see that file for
+// the full rule set). This is a reversal of the earlier "Address Line 1 is
+// never auto-filled" rule (OQ-3, resolved 2026-08) — Line 1 now arrives
+// pre-filled same as Line 2/3, a deliberate instruction this round, not an
+// oversight. It's still the one field that stays editable once the rest
+// lock (see `fieldsReadOnly` below) — `hasNumberInLine1` just says whether
+// the rules script actually found a number to anchor it on, so the hint
+// text can nudge a manual add when it didn't (rather than a silent guess).
+//
+// Confidence score, FiltersApplied, and the old structured fields still
+// exist and still compute in formattingPipeline.js — that's Dev Mode's
+// diagnostic view now, not what ships here.
 //
 // Field editability (2026-08 Places-Autocomplete-prefill PRD): once a
 // result comes from a Places pick (hasResolved), every field it populated
@@ -56,6 +63,10 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
   const [officeName, setOfficeName] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
+  // Only meaningful once hasResolved is true - see handleSearchResolve.
+  // Defaults true so the "add a number" nudge doesn't show before anything
+  // has actually resolved.
+  const [hasNumberInLine1, setHasNumberInLine1] = useState(true);
   const [hasResolved, setHasResolved] = useState(false);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [confirmed, setConfirmed] = useState(false);
@@ -69,6 +80,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     // as the search box it doubles as always used to arrive pre-filled.
     setSelectedLocation(companyName);
     setAddressLine1("");
+    setHasNumberInLine1(true);
     setStep("address");
     setConfirmed(false);
     setIsAreaPick(false);
@@ -83,6 +95,7 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
     setIsAreaPick(false);
     setSelectedLocation("");
     setAddressLine1("");
+    setHasNumberInLine1(true);
     setFields(EMPTY_FIELDS);
   };
 
@@ -92,7 +105,16 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
   const handleSearchResolve = (result, meta) => {
     setConfirmed(false);
     setSelectedLocation(result.name || "");
-    setFields(buildAddressLines(result.addressComponents));
+    const built = buildAddressLines(result.addressComponents, result.rawFormattedAddress);
+    setAddressLine1(built.addressLine1);
+    setHasNumberInLine1(built.hasNumberInLine1);
+    setFields({
+      addressLine2: built.addressLine2,
+      addressLine3: built.addressLine3,
+      cityDistrict: built.cityDistrict,
+      state: built.state,
+      pincode: built.pincode,
+    });
     setIsAreaPick(meta?.kind === "area");
     setHasResolved(true);
   };
@@ -170,7 +192,9 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                 <h3>{hasResolved ? "Confirm your address" : "Enter your office address"}</h3>
                 <p className="editor-hint">
                   {fieldsReadOnly
-                    ? "Address Line 1 is yours to fill in — the rest came from your selected location and can't be edited here."
+                    ? hasNumberInLine1
+                      ? "Every field below came from your selected location — Address Line 1 is still yours to adjust if needed."
+                      : "Every field below came from your selected location — Address Line 1 didn't come with a building/floor number, so add one before continuing."
                     : "Search for your office below, or fill in every field yourself."}
                 </p>
 
@@ -196,8 +220,12 @@ export default function UserModeView({ dataSource, liveApiConfigured }) {
                     placeholder="e.g. 2nd Floor, Tower B"
                   />
                 </label>
-                <p className="field-hint">
-                  Always yours to fill in — add your floor number, building, or tower name here.
+                <p className={fieldsReadOnly && !hasNumberInLine1 ? "field-hint field-hint-warn" : "field-hint"}>
+                  {fieldsReadOnly
+                    ? hasNumberInLine1
+                      ? "Pre-filled from your selected location — always yours to edit."
+                      : "No building/floor number came through — add one here."
+                    : "Always yours to fill in — add your floor number, building, or tower name here."}
                 </p>
 
                 <label className="field">
