@@ -5,16 +5,21 @@
  * Bulk office address lookup against Google Places API (New) — Text Search.
  *
  * What this does: reads a list of office names (one per line, see
- * office-names.example.txt), looks each one up on Google Places, and writes
- * one JSON object per office to results.json — the full raw Google response
- * plus a clean set of extracted fields (locality, sub-locality, route,
- * premise, pincode, state, city, district).
+ * office-names.example.txt), looks each one up on Google Places, runs each
+ * result through "the rules script" (addressLineRules.js — the same
+ * Address Line 1/2/3 splitting logic as frontend/src/lib/addressLineConfig.js),
+ * and writes one row per office to both results.json (the full raw Google
+ * response plus every extracted field) and results.csv (a flat table -
+ * officeName, formattedAddress, addressLine1/2/3, locality, sub-locality,
+ * route, premise, pincode, state, city, district - for scanning how the
+ * rules script performed across the whole batch in Excel/VS Code).
  *
  * Setup (see the walkthrough for the full version):
  *   1. Google Cloud Console (console.cloud.google.com) -> a project with
  *      "Places API (New)" enabled and billing attached -> create an API key.
  *   2. Copy .env.example to .env in this folder, paste the key in.
- *   3. Put your 100 office names in office-names.txt (one per line).
+ *   3. Put your office names in office-names.txt (one per line) - works the
+ *      same at 5, 100, or 300 names, just takes longer end to end.
  *   4. From this folder: node searchOffices.js
  *
  * No npm install needed - Node 18+ has fetch built in, and the .env reader
@@ -23,6 +28,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { buildAddressLines } = require("./addressLineRules.js");
 
 const SCRIPT_DIR = __dirname;
 const DEFAULT_INPUT_FILE = path.join(SCRIPT_DIR, "office-names.txt");
@@ -166,6 +172,13 @@ function extractFields(addressComponents) {
 }
 
 function normalizePlace(place) {
+  const fields = extractFields(place.addressComponents);
+  const lines = buildAddressLines(place.formattedAddress, {
+    city: fields.city,
+    state: fields.state,
+    pincode: fields.pincode,
+  });
+
   return {
     placeId: place.id || null,
     name: (place.displayName && place.displayName.text) || null,
@@ -173,7 +186,14 @@ function normalizePlace(place) {
     location: place.location
       ? { lat: place.location.latitude, lng: place.location.longitude }
       : null,
-    fields: extractFields(place.addressComponents),
+    fields,
+    // "The rules script" output - see addressLineRules.js. hasNumberInLine1
+    // is false when rule 5 (no numbered element found) fired instead of
+    // rule 4, same flag the real app surfaces as a hint-copy nudge.
+    addressLine1: lines.addressLine1,
+    addressLine2: lines.addressLine2,
+    addressLine3: lines.addressLine3,
+    hasNumberInLine1: lines.hasNumberInLine1,
     // Entire raw Google address component list, untouched - everything the
     // extracted fields above came from, in case you need something this
     // script didn't think to name.
@@ -198,9 +218,58 @@ function writeResults(outputFile, results) {
   fs.writeFileSync(outputFile, JSON.stringify(results, null, 2));
 }
 
+/* ============================= CSV export (rules-script review) ============================= */
+// Flat, one-row-per-office table specifically for eyeballing how the rules
+// script performed across the whole batch - opens cleanly in Excel or
+// VS Code's own CSV preview, unlike scrolling through 300 JSON objects.
+const CSV_COLUMNS = [
+  "officeName", "status", "formattedAddress",
+  "addressLine1", "addressLine2", "addressLine3", "hasNumberInLine1",
+  "locality", "sublocality", "route", "premise", "pincode", "state", "city", "district",
+  "matchCount", "error",
+];
+
+function csvEscape(value) {
+  const str = value === null || value === undefined ? "" : String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function toCsvRow(entry) {
+  const r = entry.topResult;
+  const row = {
+    officeName: entry.officeName,
+    status: entry.status,
+    formattedAddress: r ? r.formattedAddress : "",
+    addressLine1: r ? r.addressLine1 : "",
+    addressLine2: r ? r.addressLine2 : "",
+    addressLine3: r ? r.addressLine3 : "",
+    hasNumberInLine1: r ? r.hasNumberInLine1 : "",
+    locality: r ? r.fields.locality : "",
+    sublocality: r ? r.fields.sublocality : "",
+    route: r ? r.fields.route : "",
+    premise: r ? r.fields.premise : "",
+    pincode: r ? r.fields.pincode : "",
+    state: r ? r.fields.state : "",
+    city: r ? r.fields.city : "",
+    district: r ? r.fields.district : "",
+    matchCount: entry.matchCount,
+    error: entry.error || "",
+  };
+  return CSV_COLUMNS.map((col) => csvEscape(row[col])).join(",");
+}
+
+function writeCsv(outputFile, results) {
+  const lines = [CSV_COLUMNS.join(","), ...results.map(toCsvRow)];
+  fs.writeFileSync(outputFile, lines.join("\n") + "\n");
+}
+
 async function main() {
   const inputFile = path.resolve(process.argv[2] || DEFAULT_INPUT_FILE);
   const outputFile = path.resolve(process.argv[3] || DEFAULT_OUTPUT_FILE);
+  const csvOutputFile = outputFile.replace(/\.json$/i, "") + ".csv";
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
@@ -225,7 +294,7 @@ async function main() {
   }
 
   console.log(`Looking up ${officeNames.length} office name(s) from ${inputFile}...`);
-  console.log(`Writing results to ${outputFile} as each one completes.\n`);
+  console.log(`Writing results to ${outputFile} and ${csvOutputFile} as each one completes.\n`);
 
   const results = [];
   let okCount = 0;
@@ -283,14 +352,17 @@ async function main() {
       });
     }
 
-    // Save after every office, not just at the end - a 100-call run that
+    // Save after every office, not just at the end - a 300-call run that
     // gets interrupted partway through shouldn't lose everything already done.
     writeResults(outputFile, results);
+    writeCsv(csvOutputFile, results);
 
     if (i < officeNames.length - 1) await sleep(REQUEST_DELAY_MS);
   }
 
-  console.log(`\nDone: ${okCount} matched, ${noMatchCount} no match, ${errorCount} errored. Full results in ${outputFile}.`);
+  console.log(
+    `\nDone: ${okCount} matched, ${noMatchCount} no match, ${errorCount} errored.\nFull results in ${outputFile}; open ${csvOutputFile} to review how the rules script split each address.`
+  );
 }
 
 main();
